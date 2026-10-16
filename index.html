@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>data-newest-frame: Datastar plugin</title>
+    <meta name="description" content="Interactive demo and documentation for @mbolli/datastar-attribute-newest-frame, a Datastar plugin that keeps a page too slow for its SSE stream close to the present by applying only the newest frame of each view">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%23005546%22/><rect x=%226%22 y=%2212%22 width=%2214%22 height=%2213%22 rx=%222%22 fill=%22none%22 stroke=%22white%22 stroke-width=%222%22/><rect x=%2212%22 y=%227%22 width=%2214%22 height=%2213%22 rx=%222%22 fill=%22white%22/></svg>">
+    <link rel="preload" href="demo/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="demo/demo.css">
+    <style>
+        :root {
+            --series-without: light-dark(#c95a34, #d0613b);
+            --series-with: light-dark(#0f8a70, #2a9e7c);
+        }
+        .stage { display: grid; gap: 1rem; margin: 1.25rem 0; }
+        @media (min-width: 44rem) { .stage { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; } }
+        .board { margin: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--wash); padding: .6rem; }
+        .board svg { display: block; inline-size: 100%; block-size: auto; aspect-ratio: 48 / 30; }
+        .board path { fill: var(--accent); }
+        .board figcaption { margin-top: .5rem; font: 400 .8rem/1.4 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+        .controls .control-row { margin: 0 0 .9rem; }
+        .controls .control-row > span:first-child { min-width: 0; flex: 1 1 100%; }
+        .controls output { font: 500 .9rem/1 var(--mono); min-width: 4.5rem; text-align: right; font-variant-numeric: tabular-nums; }
+        .switch { display: flex; align-items: center; gap: .6rem; font-weight: 600; cursor: pointer; }
+        .controls .actions { margin-top: 0; }
+        .source { margin: 0 0 1rem; padding: .7rem .9rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--wash); font-size: .88rem; }
+        .source strong { color: var(--accent); }
+        .chart { position: relative; margin: 1.25rem 0 .5rem; color: var(--muted); border-color: var(--line); }
+        .chart canvas { display: block; inline-size: 100%; block-size: 16rem; touch-action: pan-y; }
+        .chart-title { margin: 0 0 .4rem; font-weight: 600; color: var(--ink); font-size: .95rem; }
+        .legend { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; list-style: none; margin: 0 0 .5rem; padding: 0; font-size: .88rem; color: var(--ink); }
+        .legend li { margin: 0; display: flex; align-items: center; gap: .45rem; }
+        .key { inline-size: 1.1rem; block-size: .25rem; border-radius: 2px; background: var(--series-without); }
+        .key-with { background: var(--series-with); }
+        .tip {
+            position: absolute;
+            pointer-events: none;
+            padding: .45rem .6rem;
+            background: var(--surface);
+            color: var(--ink);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: 0 .4rem 1rem rgb(0 0 0 / .12);
+            font: 400 .78rem/1.45 var(--mono);
+            white-space: nowrap;
+        }
+        .tip p { margin: 0; display: flex; align-items: center; gap: .4rem; }
+        .runs { inline-size: 100%; border-collapse: collapse; margin: .75rem 0 0; font-size: .88rem; }
+        .runs thead td { border-bottom: 1px solid var(--line); }
+        .runs th, .runs td { padding: .45rem .5rem; border-bottom: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
+        .runs th:first-child { text-align: left; }
+        .runs thead th { font: 500 .72rem/1.3 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; vertical-align: bottom; white-space: nowrap; }
+        .runs tbody th { font-weight: 500; }
+        .runs thead .key { display: inline-block; vertical-align: middle; margin-right: .4rem; }
+        .runs td:empty::before { content: 'not run'; color: var(--muted); }
+        .table-scroll { overflow-x: auto; }
+        .bars { margin: 1rem 0 1.5rem; }
+        .bars figcaption { font-weight: 600; margin-bottom: .5rem; }
+        .bar-group { display: grid; gap: .3rem; padding: .6rem 0; border-top: 1px solid var(--line); }
+        .bar-group > span { font: 500 .8rem/1.3 var(--mono); color: var(--muted); }
+        .bar-row { display: flex; align-items: center; gap: .5rem; min-height: 1.1rem; font-size: .85rem; font-variant-numeric: tabular-nums; }
+        .bar { flex: none; block-size: .9rem; inline-size: calc(var(--v) * (100% - 7rem)); border-radius: 0 4px 4px 0; background: var(--series-without); }
+        .bar-with { background: var(--series-with); }
+        .bar:not([style*="--v: 0;"]) { min-inline-size: 2px; }
+        .bar[style*="--v: 0;"] { margin-right: -.5rem; }
+        .compare { inline-size: 100%; border-collapse: collapse; margin: .5rem 0 1rem; font-size: .88rem; }
+        .compare th, .compare td { padding: .45rem .4rem; border-bottom: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .compare th:first-child { text-align: left; }
+        .compare thead th { font: 500 .72rem/1.3 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; vertical-align: bottom; }
+        .compare thead th[colspan] { text-align: center; }
+        .compare tbody th { font-weight: 500; white-space: nowrap; }
+        @media (forced-colors: active) {
+            .key, .bar { forced-color-adjust: none; background: CanvasText; }
+            .key-with, .bar-with { background: Highlight; }
+        }
+    </style>
+    <script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareSourceCode", "@id": "https://mbolli.github.io/datastar-attribute-newest-frame/#software", "name": "datastar-attribute-newest-frame", "description": "Interactive demo and documentation for @mbolli/datastar-attribute-newest-frame, a Datastar plugin that keeps a page too slow for its SSE stream close to the present by applying only the newest frame of each view", "url": "https://mbolli.github.io/datastar-attribute-newest-frame/", "codeRepository": "https://github.com/mbolli/datastar-attribute-newest-frame", "programmingLanguage": "TypeScript", "license": "https://spdx.org/licenses/MIT.html", "sameAs": ["https://www.npmjs.com/package/@mbolli/datastar-attribute-newest-frame"], "author": {"@type": "Person", "@id": "https://zweiundeins.gmbh/#mbolli", "name": "Michael Bolli", "url": "https://zweiundeins.gmbh/en#about"}, "maintainer": {"@type": "Organization", "@id": "https://zweiundeins.gmbh/#organization", "name": "zwei und eins gmbh", "url": "https://zweiundeins.gmbh"}}</script>
+</head>
+<body>
+    <header class="page-head">
+        <div class="wrap">
+            <p class="eyebrow">Datastar plugin</p>
+            <h1>data-newest-frame</h1>
+            <p class="lead">Keep a page that is too slow for its SSE stream close to the present: when frames pile up, it applies the newest frame of each view and skips the ones it replaces.</p>
+            <div class="btn-row">
+                <a href="https://github.com/mbolli/datastar-attribute-newest-frame" class="btn">GitHub</a>
+                <a href="https://www.npmjs.com/package/@mbolli/datastar-attribute-newest-frame" class="btn btn-ghost">npm</a>
+                <a href="https://data-star.dev" class="btn btn-ghost">Datastar docs</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="wrap layout">
+        <aside class="sidebar">
+            <details class="panel" open>
+                <summary>Install</summary>
+                <div class="panel-body">
+                    <p class="label">npm</p>
+                    <pre class="code" data-lang="shell">npm install @mbolli/datastar-attribute-newest-frame</pre>
+                    <p class="label">Browser</p>
+                    <pre class="code" data-lang="html">&lt;script type="importmap"&gt;
+{
+  "imports": {
+    "datastar": "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js"
+  }
+}
+&lt;/script&gt;
+&lt;script type="module" src="https://cdn.jsdelivr.net/npm/@mbolli/datastar-attribute-newest-frame@1/dist/index.js"&gt;&lt;/script&gt;</pre>
+                </div>
+            </details>
+            <details class="panel" open>
+                <summary>Contents</summary>
+                <div class="panel-body">
+                    <ul class="toc">
+                        <li><a href="#usage-guide">Usage guide</a></li>
+                        <li><a href="#demo">1. Live demo</a></li>
+                        <li><a href="#measured">2. Measured in lith</a></li>
+                    </ul>
+                </div>
+            </details>
+            <details class="panel">
+                <summary>Live signals</summary>
+                <div class="panel-body">
+                    <pre class="code signals" data-json-signals></pre>
+                </div>
+            </details>
+        </aside>
+
+        <main class="demos">
+            <section class="card" id="usage-guide">
+                <span class="card-num">Guide</span>
+                <h2>Usage</h2>
+                <p>The <code>data-newest-frame</code> attribute watches the patch events of one SSE stream. A page that keeps up applies every frame as it comes. A page that falls behind applies only the newest frame of each view among those that arrived together, and tells you when it skips most of them.</p>
+
+                <h3>Basic syntax</h3>
+                <pre class="code"><code>data-newest-frame[:stream-id][__reopen]</code></pre>
+                <ul>
+                    <li><strong>Stream:</strong> the element whose <code>@get</code> opened the stream, <code>#stream</code> by default. Name another id after the colon: <code>data-newest-frame:feed</code>. HTML lowercases attribute names, so the id has to be lowercase.</li>
+                    <li><strong>Where:</strong> put it on <code>&lt;body&gt;</code>, or on any element that lives as long as the stream. It listens on <code>window</code>, so its place in the page does not matter.</li>
+                    <li><code>__reopen</code>: when the page falls behind, also set <code>$_slow</code> and open the stream again, so the server can send a slower one. See below.</li>
+                </ul>
+                <pre class="code" data-lang="html"><code>&lt;body data-newest-frame&gt;
+  &lt;div id="stream" data-init="@get('/stream')"&gt;&lt;/div&gt;
+  &lt;div id="board"&gt;...&lt;/div&gt;
+&lt;/body&gt;</code></pre>
+
+                <h3>Why a page falls behind</h3>
+                <p>A server that streams ten frames a second never waits for the page: the browser and the kernel take minutes of frames before a write blocks. A page whose main thread needs more than 100 ms per frame falls behind, and the server cannot tell.</p>
+                <ul>
+                    <li><strong>Chromium</strong> then hands the page up to 2 MiB of the stream at each read. Datastar parses the chunk and applies every frame in it inside one task, with no paint in between: seconds of frozen page, showing a board that is already old when it appears.</li>
+                    <li><strong>Firefox</strong> keeps the frames in its parent process and hands the page one per task. It keeps painting, but every frame it paints is older than the last.</li>
+                </ul>
+
+                <h3>Which patches it drops</h3>
+                <p>A <code>datastar-patch-elements</code> event is a frame of a view when it replaces that view wholly. Of the frames of one view that arrive together, only the newest is applied; the others are dropped. Everything else keeps its place in the order and is never dropped.</p>
+                <div class="split">
+                    <div>
+                        <h4>Frames of a view</h4>
+                        <ul>
+                            <li>Mode <code>outer</code> (the default) or <code>replace</code>, when every top-level element has an id. The sorted ids name the view.</li>
+                            <li>The same, with a <code>selector</code> of that one id.</li>
+                            <li>Mode <code>inner</code> with a <code>#id</code> selector.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Never dropped</h4>
+                        <ul>
+                            <li>Signal patches</li>
+                            <li><code>append</code>, <code>prepend</code>, <code>before</code>, <code>after</code>, <code>remove</code></li>
+                            <li>Elements without an id, other selectors</li>
+                            <li>Patches with a <code>&lt;script&gt;</code> or a view transition</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>When it applies a batch</h3>
+                <p>Datastar dispatches every event of a chunk at once and reads the next chunk after a microtask, so the plugin holds the events of a chunk and passes them on in one batch at the end of it. It waits for the next animation frame when it passed a batch on less than a frame before, and after each batch it waits half as long as that batch took to apply. A page that keeps up gets each frame at once; a page that is behind paints between batches, and Firefox's frames gather during the wait.</p>
+
+                <h3>The newest-frame-behind event</h3>
+                <p>When more than half of the frames of the last 3 seconds were skipped, at least 10 frames, the plugin dispatches <code>newest-frame-behind</code> on the stream's element. It bubbles, and the counts start over, so a page that stays behind gets one about every 3 seconds.</p>
+                <ul>
+                    <li><code>evt.detail.id</code>: the stream's id</li>
+                    <li><code>evt.detail.frames</code>: frames (element patches) that arrived in the span</li>
+                    <li><code>evt.detail.skipped</code>: how many of them were skipped</li>
+                    <li><code>evt.detail.span</code>: the milliseconds the counts cover, 2,700 to 3,000</li>
+                    <li><code>evt.detail.reopen</code>: whether <code>__reopen</code> is set</li>
+                </ul>
+                <pre class="code" data-lang="html"><code>&lt;body data-newest-frame data-on:newest-frame-behind="$behind = evt.detail.skipped + ' of ' + evt.detail.frames + ' frames skipped'"&gt;</code></pre>
+
+                <h3>Asking for a slower stream with __reopen</h3>
+                <p>With <code>__reopen</code>, the first time the page falls behind the plugin sets <code>$_slow</code> to <code>true</code> and replaces the stream's element with a copy of itself. Its <code>data-init</code> runs again and opens the stream at the same URL, so Datastar aborts the old request; send a header while <code>$_slow</code> is set and the server can answer with fewer frames. It asks once, and never when <code>$_slow</code> is already true, for example because the page measured a slow link as it started.</p>
+                <pre class="code" data-lang="html"><code>&lt;body data-signals:_slow="false" data-newest-frame__reopen&gt;
+  &lt;div id="stream" data-init="@get('/stream', {headers: $_slow ? {'Save-Data': 'on'} : {}})"&gt;&lt;/div&gt;
+&lt;/body&gt;</code></pre>
+                <p class="fine">This is how <a href="https://github.com/zweiundeins/lith">lith</a> uses it: its template and its site load the plugin with <code>__reopen</code>, and a stream whose request carries <code>Save-Data: on</code> sends each view at most four times a second.</p>
+
+                <h3>Requirements</h3>
+                <p class="fine">Datastar 1.0, with an import map that maps <code>datastar</code> and comes before every module script; Firefox ignores an import map that comes later. The plugin reads the <code>datastar-fetch</code> events that Datastar dispatches for every SSE event (their <code>type</code>, <code>el</code> and <code>argsRaw</code>), which Datastar 1.0.x does not document; its own virtual-scroll example dispatches them the same way.</p>
+            </section>
+
+            <section class="card" id="demo" data-newest-frame:sim-with data-on:newest-frame-behind="$_demo.event = 'newest-frame-behind: ' + evt.detail.skipped + ' of ' + evt.detail.frames + ' frames skipped in the last ' + (evt.detail.span / 1000).toFixed(1) + ' s.'" data-signals__ifmissing='{"_demo": {"cost": 120, "plugin": true, "busy": false, "status": "Ready.", "source": "", "gen": "", "behind": "", "event": ""}, "_runs": {"without": {"applied": "", "painted": "", "skipped": "", "pause": "", "end": "", "max": ""}, "with": {"applied": "", "painted": "", "skipped": "", "pause": "", "end": "", "max": ""}}}'>
+                <span class="card-num">Demo 1</span>
+                <h2>Live demo: a Game of Life at ten frames a second</h2>
+                <p>A stream sends a generation of the board every 100 ms. The slider makes each frame cost more to apply: after Datastar applies one, the page busy-waits that long, the handicap the Firefox measurements below used. Above 100 ms the page cannot keep up. Run both and compare how far behind the board the page falls, with and without the plugin.</p>
+                <p class="source" data-text="$_demo.source">Waiting for the stream's Service Worker.</p>
+
+                <div class="stage">
+                    <figure class="board">
+                        <div id="sim-view"><svg viewBox="0 0 48 30" role="img" aria-label="The board, before a run"><path d=""/></svg></div>
+                        <figcaption><span data-text="$_demo.gen || 'No run yet.'"></span> <span data-text="$_demo.behind"></span></figcaption>
+                    </figure>
+                    <div class="controls">
+                        <label class="control-row">
+                            <span>Cost of applying a frame</span>
+                            <input type="range" min="0" max="300" step="10" data-bind:_demo.cost aria-label="Cost of applying a frame, in milliseconds">
+                            <output data-text="$_demo.cost + ' ms'"></output>
+                        </label>
+                        <label class="switch control-row">
+                            <input type="checkbox" data-bind:_demo.plugin>
+                            <span>newest-frame plugin, for a single run</span>
+                        </label>
+                        <div class="actions">
+                            <button data-on:click="@newestFrameDemo('both')" data-attr:disabled="$_demo.busy">Run both, one after the other</button>
+                            <button class="ghost" data-on:click="@newestFrameDemo('once')" data-attr:disabled="$_demo.busy">Run once</button>
+                            <button class="ghost" data-on:click="@newestFrameDemo('stop')" data-attr:disabled="!$_demo.busy">Stop</button>
+                        </div>
+                        <p class="fine" style="margin-top: 1rem" data-text="$_demo.status" aria-live="polite"></p>
+                        <p class="fine" data-show="$_demo.event" data-text="$_demo.event"></p>
+                    </div>
+                </div>
+
+                <div class="chart">
+                    <p class="chart-title" id="lag-title">Seconds behind the board during each run</p>
+                    <ul class="legend">
+                        <li><span class="key"></span>Without the plugin</li>
+                        <li><span class="key key-with"></span>With the plugin</li>
+                    </ul>
+                    <canvas id="lag-chart" role="img" aria-labelledby="lag-title" aria-describedby="lag-table"></canvas>
+                    <div class="tip" hidden></div>
+                </div>
+
+                <div class="table-scroll">
+                    <table class="runs" id="lag-table">
+                        <thead>
+                            <tr><td></td><th scope="col"><span class="key"></span>Without</th><th scope="col"><span class="key key-with"></span>With</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><th scope="row">Frames applied</th><td data-text="$_runs.without.applied"></td><td data-text="$_runs.with.applied"></td></tr>
+                            <tr><th scope="row">Frames painted</th><td data-text="$_runs.without.painted"></td><td data-text="$_runs.with.painted"></td></tr>
+                            <tr><th scope="row">Frames skipped</th><td data-text="$_runs.without.skipped"></td><td data-text="$_runs.with.skipped"></td></tr>
+                            <tr><th scope="row">Longest time without a paint</th><td data-text="$_runs.without.pause"></td><td data-text="$_runs.with.pause"></td></tr>
+                            <tr><th scope="row">Behind at the end</th><td data-text="$_runs.without.end"></td><td data-text="$_runs.with.end"></td></tr>
+                            <tr><th scope="row">Behind at most</th><td data-text="$_runs.without.max"></td><td data-text="$_runs.with.max"></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="note">
+                    <h4>Reading the demo</h4>
+                    <ul>
+                        <li><strong>Behind</strong> is how long ago the board passed the generation the page shows.</li>
+                        <li>Without the plugin the page freezes for longer and longer near the end of a run, while it applies every frame of a read in one task. With it, the page paints between batches and stays within a few frames.</li>
+                        <li>Both runs share this tab's main thread, so they run one after the other, on the same boards.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="card" id="measured">
+                <span class="card-num">Demo 2</span>
+                <h2>Measured in lith</h2>
+                <p>The plugin started in <a href="https://github.com/zweiundeins/lith">lith</a>, a Go framework for live Datastar pages. These runs used lith's Game of Life demo, which steps ten times a second, in headless Chromium and Firefox on Linux, on 15 and 16 October 2026. Behind is how long ago the board passed the generation the page shows.</p>
+
+                <figure class="bars" aria-labelledby="chromium-bars">
+                    <figcaption id="chromium-bars">Chromium, CPU slowed with DevTools: seconds behind after 2 minutes</figcaption>
+                    <ul class="legend">
+                        <li><span class="key"></span>Without the plugin</li>
+                        <li><span class="key key-with"></span>With the plugin</li>
+                    </ul>
+                    <div class="bar-group">
+                        <span>1× CPU</span>
+                        <div class="bar-row"><span class="bar" style="--v: 0;"></span><span class="bar-value">0 s</span></div>
+                        <div class="bar-row"><span class="bar bar-with" style="--v: 0;"></span><span class="bar-value">0 s</span></div>
+                    </div>
+                    <div class="bar-group">
+                        <span>15× CPU</span>
+                        <div class="bar-row"><span class="bar" style="--v: .44;"></span><span class="bar-value">43 to 45 s</span></div>
+                        <div class="bar-row"><span class="bar bar-with" style="--v: .0064;"></span><span class="bar-value">0.64 s, at most 1.04 s</span></div>
+                    </div>
+                    <div class="bar-group">
+                        <span>30× CPU</span>
+                        <div class="bar-row"><span class="bar" style="--v: .94;"></span><span class="bar-value">94 s</span></div>
+                        <div class="bar-row"><span class="bar bar-with" style="--v: .0111;"></span><span class="bar-value">1.11 s, at most 2.00 s</span></div>
+                    </div>
+                </figure>
+                <p class="fine">Two minutes per run with DevTools' CPU throttling, Caddy in front with TLS and HTTP/2. At 1× the page applied all ten frames a second with or without the plugin. At 15× and 30× the plugin, with <code>__reopen</code>, asked lith for a slower stream after 3.3 and 4.1 seconds; lith then sends each view at most every 250 ms. Without the plugin, the page at 30× painted once every 14 seconds.</p>
+
+                <figure class="bars" aria-labelledby="firefox-bars">
+                    <figcaption id="firefox-bars">Firefox, a fixed cost per frame: seconds behind after 110 seconds</figcaption>
+                    <ul class="legend">
+                        <li><span class="key"></span>Without the plugin</li>
+                        <li><span class="key key-with"></span>With the newest-frame rule</li>
+                    </ul>
+                    <div class="bar-group">
+                        <span>0 ms a frame</span>
+                        <div class="bar-row"><span class="bar" style="--v: 0;"></span><span class="bar-value">0 s</span></div>
+                        <div class="bar-row"><span class="bar bar-with" style="--v: 0;"></span><span class="bar-value">0 s</span></div>
+                    </div>
+                    <div class="bar-group">
+                        <span>80 ms a frame</span>
+                        <div class="bar-row"><span class="bar" style="--v: .028;"></span><span class="bar-value">2.8 s</span></div>
+                        <div class="bar-row"><span class="bar bar-with" style="--v: .0014;"></span><span class="bar-value">0.14 s, at most 0.56 s</span></div>
+                    </div>
+                    <div class="bar-group">
+                        <span>150 ms a frame</span>
+                        <div class="bar-row"><span class="bar" style="--v: .46;"></span><span class="bar-value">46 s</span></div>
+                        <div class="bar-row"><span class="bar bar-with" style="--v: .0065;"></span><span class="bar-value">0.65 s, at most 0.65 s</span></div>
+                    </div>
+                    <div class="bar-group">
+                        <span>300 ms a frame</span>
+                        <div class="bar-row"><span class="bar" style="--v: .77;"></span><span class="bar-value">77 s</span></div>
+                        <div class="bar-row"><span class="bar bar-with" style="--v: .0086;"></span><span class="bar-value">0.86 s, at most 1.16 s</span></div>
+                    </div>
+                </figure>
+                <p class="fine">Firefox has no CPU throttling, so a script busy-waited a fixed time after each frame Datastar applied, as the live demo above does. A frame then took that cost plus about 6 ms in Firefox and 8.5 ms in Chromium; 80 ms is about 9× CPU in the DevTools runs, 150 ms about 17×, 300 ms about 34×. Chromium got the same handicap:</p>
+                <div class="table-scroll">
+                    <table class="compare">
+                        <thead>
+                            <tr><th rowspan="2">Cost a frame</th><th colspan="2" scope="colgroup">Firefox</th><th colspan="2" scope="colgroup">Chromium</th></tr>
+                            <tr><th scope="col">without</th><th scope="col">with</th><th scope="col">without</th><th scope="col">with</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><th scope="row">0 ms</th><td>0 s</td><td>0 s</td><td>0 s</td><td>0 s</td></tr>
+                            <tr><th scope="row">80 ms</th><td>2.8 s</td><td>0.14 s</td><td>0.11 s</td><td>0.02 s</td></tr>
+                            <tr><th scope="row">150 ms</th><td>46 s</td><td>0.65 s</td><td>42 s</td><td>0.28 s</td></tr>
+                            <tr><th scope="row">300 ms</th><td>77 s</td><td>0.86 s</td><td>75 s</td><td>0.77 s</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="fine">These runs applied the newest-frame rule from a page script that held the frames until the next animation frame; the plugin applies the same rule and adds the pause after each batch. Where the page skipped most frames (Firefox at 150 and 300 ms, Chromium at 300 ms), it also switched to lith's slower stream, after 1.7 to 2.8 seconds. lith's v0.3.0 release measured the plugin itself: at 300 ms a frame, Chromium 154 and Firefox 158 both stayed within 0.8 s, and at 15× CPU Chromium stayed 0.68 s behind at the median, 1.08 s at most, against 42.6 s without it. At 0 ms both engines applied every frame (1,211 of 1,211 in Firefox, 1,210 of 1,210 in Chromium).</p>
+            </section>
+        </main>
+    </div>
+
+    <footer class="page-foot">
+        <div class="wrap">
+            <ul class="foot-links">
+                <li><a href="https://github.com/mbolli/datastar-attribute-newest-frame">GitHub</a></li>
+                <li><a href="https://www.npmjs.com/package/@mbolli/datastar-attribute-newest-frame">npm</a></li>
+                <li><a href="https://data-star.dev">Datastar</a></li>
+                <li><a href="https://mbolli.github.io/datastar-attribute-on-keys/">data-on-keys plugin</a></li>
+                <li><a href="https://mbolli.github.io/datastar-attribute-prop/">data-prop plugin</a></li>
+            </ul>
+            <p class="maintainer">Maintained by <a href="https://zweiundeins.gmbh">zwei und eins gmbh</a>.</p>
+        </div>
+    </footer>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "datastar": "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js"
+            }
+        }
+    </script>
+    <script type="module" src="demo/highlight.js"></script>
+    <script src="demo/life.js"></script>
+    <script type="module" src="demo/live.js"></script>
+    <script type="module">
+        // The plugin registers itself when 'datastar' resolves through the import map
+        import './dist/index.js'
+    </script>
+</body>
+</html>
