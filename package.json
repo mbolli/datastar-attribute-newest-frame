@@ -1,0 +1,48 @@
+{
+  "name": "@mbolli/datastar-attribute-newest-frame",
+  "version": "1.0.0",
+  "description": "Datastar plugin that applies only the newest frame of each view when a page falls behind its SSE stream",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "dist/index.js",
+    "dist/index.js.map",
+    "dist/index.d.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc && NODE_ENV=production node esbuild.config.js && dts-bundle-generator --config dts-bundle-generator.config.cjs",
+    "build:dev": "tsc && node esbuild.config.js && dts-bundle-generator --config dts-bundle-generator.config.cjs",
+    "test": "node --test dist/index.test.js",
+    "test:compile": "tsc && node --test dist/index.test.js",
+    "test:browser": "python3 -m http.server 8080",
+    "prepublishOnly": "pnpm build && pnpm test"
+  },
+  "keywords": [
+    "datastar",
+    "plugin",
+    "attribute",
+    "sse",
+    "stream",
+    "backpressure",
+    "frames",
+    "performance"
+  ],
+  "author": "Michael Bolli <michael@bolli.us>",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jsdom": "^30.0.0",
+    "@types/node": "^26.6.5",
+    "datastar": "github:starfederation/datastar#v1.0.4",
+    "dts-bundle-generator": "^9.5.1",
+    "esbuild": "^0.28.2",
+    "jsdom": "^30.1.2",
+    "typescript": "^6.0.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbolli/datastar-attribute-newest-frame.git"
+  }
+}
