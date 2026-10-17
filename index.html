@@ -383,6 +383,7 @@
                 <span class="card-num">Demo 4</span>
                 <h2>Pacing on the server instead</h2>
                 <p>The server cannot see a slow page in its own writes, but it can if the page tells it. For comparison, lith got a prototype of that: each frame ends with an element whose <code>data-init</code> posts an acknowledgement, and the server keeps at most W frames unacknowledged per stream. When an acknowledgement arrives it sends the view's newest frame, so the frames in between never leave the server.</p>
+                <p>At W=1 this is long polling: each acknowledgement asks for the next frame, so the page gets at most one frame per round trip plus the time to apply it. It differs from ordinary polling in that nothing goes out while the view does not change, the frame arrives over the open SSE stream rather than as the response to the acknowledgement, and the server always sends the newest state. A larger W works like TCP's sliding window: more frames in flight hide the round trip, and the server notices a slow page later. For a page that keeps up, plain push needs no requests and has no round-trip cap, which is why pacing pays off only while a page is behind.</p>
                 <pre class="code" data-lang="html"><code>&lt;i id="ack-42" data-init="@post('/ack?tab=…&amp;n=42', {requestCancellation: 'disabled'})"&gt;&lt;/i&gt;</code></pre>
 
                 <figure class="shot">
