@@ -79,6 +79,17 @@
         .shot img { display: block; inline-size: 100%; block-size: auto; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
         .shot figcaption { margin-top: .5rem; font-size: .88rem; color: var(--muted); }
         .shot figcaption strong { color: var(--ink); }
+        .flow { margin: 1.25rem 0; }
+        .flow svg { display: block; inline-size: 100%; min-inline-size: 46rem; block-size: auto; color: var(--ink); font-size: 12px; }
+        .flow svg text { fill: currentColor; }
+        .flow .d-muted { fill: var(--muted); } .flow .d-cap { font-size: 11px; letter-spacing: .08em; }
+        .flow .d-title { font-weight: 600; font-size: 13px; } .flow .d-small { font-size: 11px; }
+        .flow .d-rule { stroke: var(--line); } .flow .d-line { stroke: currentColor; stroke-width: 1.5; fill: none; }
+        .flow .d-box { fill: var(--surface); stroke: var(--line); }
+        .flow .d-hot { stroke: var(--series-without); stroke-width: 2; }
+        .flow .d-srv { stroke: var(--series-with); stroke-width: 1.5; } .flow .d-pg { stroke: var(--accent); stroke-width: 1.5; }
+        .flow .d-load { fill: light-dark(#7aa7f0, #5b86c8); } .flow .d-morph { fill: light-dark(#f2c94c, #c9a536); } .flow .d-paint { fill: light-dark(#4cb963, #3b9a50); }
+        .flow figcaption { margin-top: .5rem; font-size: .88rem; color: var(--muted); }
         @media (forced-colors: active) {
             .key, .bar { forced-color-adjust: none; background: CanvasText; }
             .key-with, .bar-with { background: Highlight; }
@@ -127,6 +138,7 @@
                         <li><a href="#measured">2. Measured in lith</a></li>
                         <li><a href="#profile">3. In a Chrome profile</a></li>
                         <li><a href="#server">4. Pacing on the server instead</a></li>
+                        <li><a href="#frames">5. Cheaper frames first</a></li>
                     </ul>
                 </div>
             </details>
@@ -162,6 +174,34 @@
                     <li><strong>Chromium</strong> then hands the page up to 2 MiB of the stream at each read. Datastar parses the chunk and applies every frame in it inside one task, with no paint in between: seconds of frozen page, showing a board that is already old when it appears.</li>
                     <li><strong>Firefox</strong> keeps the frames in its parent process and hands the page one per task. It keeps painting, but every frame it paints is older than the last.</li>
                 </ul>
+
+                <figure class="flow">
+                    <div class="table-scroll">
+                    <svg viewBox="0 0 1000 400" role="img" aria-label="A frame goes from the server through the proxy into Chromium's network process, which holds the backlog of up to 6 MiB, then through a 2 MiB pipe to the page, where Datastar morphs 45 frames in one 7.2 second task before it paints. Pacing acts at the server, newest-frame on the page.">
+                        <defs><marker id="fa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+                        <text x="1" y="14" class="d-muted d-cap">SERVER</text><line x1="1" x2="363" y1="22" y2="22" class="d-rule"/>
+                        <text x="425" y="14" class="d-muted d-cap">BROWSER</text><line x1="425" x2="999" y1="22" y2="22" class="d-rule"/>
+                        <rect x="1" y="40" width="150" height="96" rx="6" class="d-box"/><text x="13" y="64" class="d-title">Server</text><text x="13" y="86">renders each view</text><text x="13" y="104">once per tick, 10/s</text><text x="13" y="122" class="d-muted">one slot per view</text>
+                        <rect x="213" y="40" width="150" height="96" rx="6" class="d-box"/><text x="225" y="64" class="d-title">Proxy</text><text x="225" y="86">TLS, HTTP/2</text><text x="225" y="104">flushes at once</text>
+                        <rect x="425" y="40" width="150" height="96" rx="6" class="d-box d-hot"/><text x="437" y="64" class="d-title">Network process</text><text x="437" y="86">frames wait here</text><text x="437" y="104">HTTP/2 window</text><text x="437" y="122">6 MiB per stream</text>
+                        <rect x="637" y="40" width="150" height="96" rx="6" class="d-box"/><text x="649" y="64" class="d-title">Renderer pipe</text><text x="649" y="86">hands over</text><text x="649" y="104">2 MiB per read</text>
+                        <rect x="849" y="40" width="150" height="96" rx="6" class="d-box"/><text x="861" y="64" class="d-title">Page main thread</text><text x="861" y="86">Datastar parses,</text><text x="861" y="104">morphs every frame</text><text x="861" y="122">in one task</text>
+                        <g class="d-line"><line x1="155" x2="209" y1="100" y2="100" marker-end="url(#fa)"/><line x1="367" x2="421" y1="100" y2="100" marker-end="url(#fa)"/><line x1="579" x2="633" y1="100" y2="100" marker-end="url(#fa)"/><line x1="791" x2="845" y1="100" y2="100" marker-end="url(#fa)"/></g>
+                        <g class="d-small" text-anchor="middle"><text x="182" y="78">~700 B</text><text x="182" y="90">a frame</text><text x="394" y="78">writes</text><text x="394" y="90">never wait</text><text x="606" y="78">when the</text><text x="606" y="90">page reads</text><text x="818" y="78">45 frames</text><text x="818" y="90">at once</text></g>
+                        <text x="1" y="172" class="d-title">One task on the page without the plugin, 15× CPU</text>
+                        <rect x="1" y="182" width="58" height="28" rx="3" class="d-load"/><rect x="61.5" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="81.2" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="101.0" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="120.7" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="140.4" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="160.2" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="179.9" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="199.6" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="219.4" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="239.1" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="258.8" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="278.6" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="298.3" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="318.0" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="337.8" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="357.5" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="377.2" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="397.0" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="416.7" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="436.4" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="456.2" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="475.9" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="495.6" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="515.4" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="535.1" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="554.8" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="574.6" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="594.3" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="614.0" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="633.8" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="653.5" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="673.2" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="693.0" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="712.7" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="732.4" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="752.2" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="771.9" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="791.6" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="811.4" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="831.1" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="850.8" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="870.6" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="890.3" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="910.0" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="929.8" y="182" width="18.7" height="28" rx="1.5" class="d-morph"/><rect x="951" y="182" width="48" height="28" rx="3" class="d-paint"/>
+                        <text x="1" y="228" class="d-small">read 2 MiB, parse</text><text x="505" y="228" text-anchor="middle" class="d-small">45 morphs, about 145 ms each</text><text x="999" y="228" text-anchor="end" class="d-small">paint</text>
+                        <line x1="62" x2="947" y1="240" y2="240" class="d-line" marker-start="url(#fa)" marker-end="url(#fa)"/>
+                        <text x="505" y="256" text-anchor="middle" class="d-title">7.2 s with no paint in between</text>
+                        <text x="1" y="290" class="d-title">Where each fix acts</text>
+                        <rect x="1" y="300" width="300" height="46" rx="5" class="d-box d-srv"/><text x="16" y="319" class="d-title">At the server: pacing</text><text x="16" y="336" class="d-small">hold the next frame until the page acks</text>
+                        <rect x="639" y="300" width="360" height="46" rx="5" class="d-box d-pg"/><text x="654" y="319" class="d-title">On the page: data-newest-frame</text><text x="654" y="336" class="d-small">keep the newest frame of each view, pause after a batch</text>
+                        <path d="M820,348 V372 H150 V352" class="d-line" stroke-dasharray="5 4" marker-end="url(#fa)"/>
+                        <text x="485" y="392" text-anchor="middle" class="d-small">back to the server: ack after the morph · /pace once behind · __reopen with Save-Data</text>
+                    </svg>
+                    </div>
+                    <figcaption>Measured in Chromium 154 over HTTP/2 with lith's Game of Life. The 6 MiB window holds about 50 minutes of this backlog, so the server never notices. Over HTTP/1.1 the kernel's socket buffers hold it instead. Firefox keeps the frames in its parent process and hands the page one per task: it keeps painting, but falls behind just as far.</figcaption>
+                </figure>
 
                 <h3>Which patches it drops</h3>
                 <p>A <code>datastar-patch-elements</code> event is a frame of a view when it replaces that view wholly. Of the frames of one view that arrive together, only the newest is applied; the others are dropped. Everything else keeps its place in the order and is never dropped.</p>
@@ -451,6 +491,47 @@
                     <li><strong>Many viewers of one view:</strong> the plugin costs the server nothing per viewer, but slow pages receive frames they throw away. Pacing every stream saves those bytes and costs a request per frame from everyone. Pacing only the pages that fall behind keeps both costs low.</li>
                 </ul>
                 <p class="fine">Measured on 16 October 2026 in lith's <code>TestLifeDrift</code> on one Linux machine (Intel i5-13500), headless Chromium 154 with DevTools' CPU throttling standing in for a slow phone. The far-link runs are one run each. The server-side pacing is a prototype in lith, not part of a release. Pacing after <code>newest-frame-behind</code> is a prototype too, in lith's <code>hybrid</code> branch.</p>
+            </section>
+
+            <section class="card" id="frames">
+                <span class="card-num">Demo 5</span>
+                <h2>Cheaper frames first</h2>
+                <p>A frame the page can apply in time needs no fix at all. The same Game of Life board, 80 by 50 cells, in four markups, measured on 17 October 2026 in headless Chromium 154 at 15× CPU behind Caddy over HTTP/2, without the plugin, 150 seconds, the median of three runs:</p>
+                <div class="table-scroll">
+                    <table class="compare">
+                        <thead><tr><th>Markup</th><th>Elements</th><th>HTML</th><th>On the wire</th><th>Behind, median</th><th>Falls behind from</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">Cells</th><td>4,077</td><td>46.5 KB</td><td>709 B</td><td>28.7 s</td><td>10×</td></tr>
+                            <tr><th scope="row">Lean cells</th><td>4,027</td><td>20.6 KB</td><td>1,756 B</td><td>14.2 s</td><td>12×</td></tr>
+                            <tr><th scope="row">One SVG path</th><td>34</td><td>8.7 KB</td><td>1,304 B</td><td>0.00 s</td><td>not within 120×</td></tr>
+                            <tr><th scope="row">Canvas, signal patch</th><td>26</td><td>5.2 KB</td><td>802 B</td><td>0.00 s</td><td>40×</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="fine">Breaking points from 60-second runs without a fix. Lean cells drop the classes and attributes the board does not need.</p>
+                <ul>
+                    <li><strong>The number of elements matters, not the bytes.</strong> Halving the HTML moves the break from 10× to 12×. Going from 4,000 elements to 34 removes it.</li>
+                    <li><strong>The morph is a third of the cost.</strong> At 15× a painted frame of cells costs about 440 ms: 130 ms morphing, 94 ms layout, 81 ms paint, and the rest parsing, Datastar's MutationObserver and the page's own sparkline.</li>
+                    <li><strong>The plugin cannot help a frame sent as signals.</strong> It never drops signal patches, so a canvas fed by signals needs <code>__reopen</code> or pacing on the server once it falls behind.</li>
+                </ul>
+
+                <figure class="shot">
+                    <a href="demo/img/flame-svg-15x-8s.png"><img src="demo/img/flame-svg-15x-8s.png" width="1800" height="1100" loading="lazy" alt="DevTools Performance panel: the SVG markup at 15x CPU, only short tasks, frames painted throughout, no long task."></a>
+                    <figcaption><strong>The SVG board at 15×, no plugin, same 8 seconds as Demo 3.</strong> Only short tasks and no backlog. Rendering now takes more of the main thread than script: the page is busy drawing, not morphing.</figcaption>
+                </figure>
+
+                <h3>A frame that cannot shrink</h3>
+                <p>Not every view fits in one path. An 80 by 24 terminal where nearly every cell changes each frame, one <code>&lt;span&gt;</code> per character, has 1,945 elements and falls behind from 15×. Merging runs of one colour into one span leaves 334 elements and moves the break to 50×.</p>
+                <div class="table-scroll">
+                    <table class="compare">
+                        <thead><tr><th>Terminal</th><th>No fix</th><th>Plugin, <code>__reopen</code></th><th>Server pacing</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">A span per character, 15×</th><td>20.3 s</td><td>0.68 s</td><td>0.29 s</td></tr>
+                            <tr><th scope="row">A span per colour run, 50×</th><td>3.7 s</td><td>0.63 s</td><td>0.37 s</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="fine">Median lag behind the stream over 150 seconds; server pacing acknowledges after the paint. Make the frame as cheap as the view allows first. The plugin, or pacing on the server, keeps a page current on the devices that are still too slow for it.</p>
             </section>
         </main>
     </div>
