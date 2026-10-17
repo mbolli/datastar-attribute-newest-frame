@@ -82,6 +82,17 @@
         .toc-sub { list-style: none; margin: 0 0 .25rem; padding: 0; }
         .toc-sub a { padding: .18rem 0 .18rem 1.5rem; font-size: .84rem; color: var(--muted); }
         h3[id] { scroll-margin-top: 1.5rem; }
+        .matrix { inline-size: 100%; min-inline-size: 42rem; border-collapse: separate; border-spacing: 3px; margin: .5rem 0 .75rem; font-size: .78rem; font-variant-numeric: tabular-nums; }
+        .matrix thead th { font: 500 .64rem/1.3 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .02em; text-align: left; vertical-align: bottom; padding: .3rem .45rem; }
+        .matrix tbody th { text-align: left; font-weight: 600; padding: .45rem .55rem; inline-size: 7.5rem; border-left: 3px solid var(--line); }
+        .matrix tbody th small { display: block; font-weight: 400; color: var(--muted); }
+        .matrix td { padding: .4rem .5rem; border-radius: 4px; vertical-align: top; font-weight: 600; color: var(--ink); }
+        .matrix td i { display: block; font: 500 .62rem/1.2 var(--mono); font-style: normal; text-transform: uppercase; letter-spacing: .06em; }
+        .matrix td small { display: block; font-weight: 400; color: var(--muted); }
+        .matrix .good { background: light-dark(#e3f2e8, #12301f); } .matrix .good i { color: light-dark(#1d7a3e, #6fd08f); }
+        .matrix .fair { background: light-dark(#fbf0d9, #2e2513); } .matrix .fair i { color: light-dark(#8a5a00, #e8b54a); }
+        .matrix .poor { background: light-dark(#fbe6e3, #33191a); } .matrix .poor i { color: light-dark(#b42d2d, #f08a80); }
+        .matrix .na { border: 1px dashed var(--line); color: var(--muted); font: 400 .7rem/1.3 var(--mono); }
         .flow { margin: 1.25rem 0; }
         .flow svg { display: block; inline-size: 100%; min-inline-size: 40rem; block-size: auto; color: var(--ink); font-size: 15px; }
         .flow svg text { fill: currentColor; }
@@ -513,12 +524,65 @@
                 <p class="fine">15× CPU, 150 seconds, the median of three runs; the last column is one run each. The page asked for pacing 2.2 seconds in. On a page slow for 60 seconds and then fast, pacing ended 5 to 6 seconds after the CPU sped up and the page went back to ten frames a second; with <code>__reopen</code> it stays on the slow stream. In an in-process load test of 1,000 streams with a tenth of them slow, pacing every stream took 9,200 acknowledgements a second and 2.3 times the CPU; pacing only the slow ones took 250 a second, within the plugin's range.</p>
 
                 <h3 id="which-to-use">Which to use</h3>
+                <div class="table-scroll">
+                    <table class="matrix">
+                        <thead><tr><th></th><th>Slow phone, fast link<br>behind, sent</th><th>Key press<br>at 15×</th><th>Slow phone, 300 ms<br>behind, fps</th><th>Fast phone, 300 ms<br>fps</th><th>Around 6×<br>behind, painted</th><th>Slow, then fast</th><th>1,000 viewers<br>requests, CPU</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">No fix</th>
+                                <td class="poor"><i>poor</i>27 s<small>7.2 KB/s</small></td>
+                                <td class="poor"><i>poor</i>2,970 ms</td>
+                                <td class="poor"><i>poor</i>26 s<small>7.1 applied</small></td>
+                                <td class="good"><i>good</i>10.1</td>
+                                <td class="good"><i>good</i>0.10 s<small>6.5 painted</small></td>
+                                <td class="fair"><i>fair</i>recovers<small>7 s after</small></td>
+                                <td class="good"><i>good</i>0<small>150%</small></td></tr>
+                            <tr><th scope="row">Plugin</th>
+                                <td class="good"><i>good</i>0.28 s<small>7.0 KB/s</small></td>
+                                <td class="fair"><i>fair</i>142 ms</td>
+                                <td class="good"><i>good</i>0.47 s<small>2.7 fps</small></td>
+                                <td class="good"><i>good</i>10.1</td>
+                                <td class="good"><i>good</i>0.06 s<small>7.9 painted</small></td>
+                                <td class="good"><i>good</i>at once</td>
+                                <td class="good"><i>good</i>0<small>150%</small></td></tr>
+                            <tr><th scope="row">Plugin, <code>__reopen</code></th>
+                                <td class="fair"><i>fair</i>0.62 s<small>3.4 KB/s</small></td>
+                                <td class="fair"><i>fair</i>132 ms</td>
+                                <td class="fair"><i>fair</i>0.80 s<small>2.8 fps</small></td>
+                                <td class="good"><i>good</i>10.1</td>
+                                <td class="poor"><i>poor</i>0.37 s<small>4.0 painted</small></td>
+                                <td class="poor"><i>poor</i>stays at 4 fps</td>
+                                <td class="good"><i>good</i>0<small>155%</small></td></tr>
+                            <tr><th scope="row">Server pacing, every stream</th>
+                                <td class="good"><i>good</i>0.31 s<small>1.9 KB/s</small></td>
+                                <td class="fair"><i>fair</i>118 ms</td>
+                                <td class="fair"><i>fair</i>0.55 s<small>1.45 fps</small></td>
+                                <td class="poor"><i>poor</i>2.8</td>
+                                <td class="good"><i>good</i>0.10 s<small>6.8 painted</small></td>
+                                <td class="fair"><i>fair</i>recovers<small>10 acks/s</small></td>
+                                <td class="poor"><i>poor</i>9,205<small>439%</small></td></tr>
+                            <tr><th scope="row">Plugin, then server pacing</th>
+                                <td class="good"><i>good</i>0.34 s<small>2.2 KB/s</small></td>
+                                <td class="fair"><i>fair</i>118 ms</td>
+                                <td class="fair"><i>fair</i>0.60 s<small>1.45 fps</small></td>
+                                <td class="good"><i>good</i>10.1<small>never paced</small></td>
+                                <td class="good"><i>good</i>0.09 s<small>6.7 painted</small></td>
+                                <td class="good"><i>good</i>released 6 s after<small>far link: with ReleaseSlack</small></td>
+                                <td class="good"><i>good</i>250<small>156%</small></td></tr>
+                            <tr><th scope="row">Cheaper frame<small>one SVG path</small></th>
+                                <td class="good"><i>good</i>0.00 s<small>13 KB/s</small></td>
+                                <td class="na">not measured</td><td class="na">not measured</td><td class="na">not measured</td><td class="na">not measured</td><td class="na">not measured</td><td class="na">not measured</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="fine">Measured on 16 and 17 October 2026 in lith's <code>TestLifeDrift</code>: headless Chromium 154 on one Linux machine (Intel i5-13500), DevTools' CPU throttling standing in for a slow phone, Caddy over HTTP/2, three runs each. Slow phone: 15× CPU. Key press: median time to the page's handler, one every 500 ms. Slow, then fast: 15× for 60 seconds, then full speed. 1,000 viewers: an in-process load test with a tenth of the pages slow; CPU in percent of one core. Ratings compare the rows within a column.</p>
                 <ul>
-                    <li><strong>A slow phone on a fast link:</strong> both work about equally well. Pacing on the server sends the fewest bytes and had the best worst case when the page acknowledged after the paint.</li>
-                    <li><strong>A fast phone on a far link:</strong> the plugin does nothing while the page keeps up. Pacing on the server caps the page at W frames per round trip, and every viewer sends a request per frame: on this demo, ten a second for each viewer that keeps up. Pacing only after <code>newest-frame-behind</code> avoids both.</li>
-                    <li><strong>Many viewers of one view:</strong> the plugin costs the server nothing per viewer, but slow pages receive frames they throw away. Pacing every stream saves those bytes and costs a request per frame from everyone. Pacing only the pages that fall behind keeps both costs low.</li>
+                    <li><strong>Start with a cheap frame.</strong> Fewer elements is what counts (<a href="#frames">Demo 5</a>).</li>
+                    <li><strong>The plugin alone</strong> costs nothing while a page keeps up, never did worse than no fix, and was closest to the stream for a slow phone on a far link.</li>
+                    <li><strong>Leave <code>__reopen</code> off for pages that are only a little too slow.</strong> Its four frames a second made a page at 6× worse than no fix, and it never switches back.</li>
+                    <li><strong>Pacing on the server</strong> sends the fewest bytes to a slow page, but caps every page at about one frame per round trip and costs a request per frame. Turned on only after <code>newest-frame-behind</code>, fast pages never pay for it. On a far link, its switch back needs the round trip the page reports.</li>
+                    <li><strong>No fix keeps the page from answering.</strong> A key press waited 3 seconds at the median at 15×; with any fix, about 120 to 140 ms. The fixes stop the freeze, but rendering every frame still keeps a phone this slow busy.</li>
                 </ul>
-                <p class="fine">Measured on 16 October 2026 in lith's <code>TestLifeDrift</code> on one Linux machine (Intel i5-13500), headless Chromium 154 with DevTools' CPU throttling standing in for a slow phone. The far-link runs are one run each. The server-side pacing is a prototype in lith, not part of a release. Pacing after <code>newest-frame-behind</code> is a prototype too, in lith's <code>hybrid</code> branch.</p>
+                <p class="fine">The server-side pacing is a prototype in lith's <code>hybrid</code> branch, not part of a release.</p>
             </section>
 
             <section class="card" id="frames">
