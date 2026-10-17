@@ -521,7 +521,7 @@
                         </tbody>
                     </table>
                 </div>
-                <p class="fine">15× CPU, 150 seconds, the median of three runs; the last column is one run each. The page asked for pacing 2.2 seconds in. On a page slow for 60 seconds and then fast, pacing ended 5 to 6 seconds after the CPU sped up and the page went back to ten frames a second; with <code>__reopen</code> it stays on the slow stream. In an in-process load test of 1,000 streams with a tenth of them slow, pacing every stream took 9,200 acknowledgements a second and 2.3 times the CPU; pacing only the slow ones took 250 a second, within the plugin's range.</p>
+                <p class="fine">15× CPU, 150 seconds, the median of three runs; the last column is one run each. The page asked for pacing 2.2 seconds in. On a page slow for 60 seconds and then fast, pacing ended 5 to 6 seconds after the CPU sped up and the page went back to ten frames a second; with <code>__reopen</code> it stays on the slow stream. In an in-process load test of 1,000 streams with a tenth of them slow, pacing every stream took 9,205 acknowledgements a second and 2.9 times the CPU; pacing only the slow ones took 250 a second, within the plugin's range.</p>
 
                 <h3 id="which-to-use">Which to use</h3>
                 <div class="table-scroll">
