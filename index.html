@@ -79,6 +79,9 @@
         .shot img { display: block; inline-size: 100%; block-size: auto; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
         .shot figcaption { margin-top: .5rem; font-size: .88rem; color: var(--muted); }
         .shot figcaption strong { color: var(--ink); }
+        .toc-sub { list-style: none; margin: 0 0 .25rem; padding: 0; }
+        .toc-sub a { padding: .18rem 0 .18rem 1.5rem; font-size: .84rem; color: var(--muted); }
+        h3[id] { scroll-margin-top: 1.5rem; }
         .flow { margin: 1.25rem 0; }
         .flow svg { display: block; inline-size: 100%; min-inline-size: 40rem; block-size: auto; color: var(--ink); font-size: 15px; }
         .flow svg text { fill: currentColor; }
@@ -133,12 +136,31 @@
                 <summary>Contents</summary>
                 <div class="panel-body">
                     <ul class="toc">
-                        <li><a href="#usage-guide">Usage guide</a></li>
+                        <li><a href="#usage-guide">Usage guide</a>
+                            <ul class="toc-sub">
+                                <li><a href="#basic-syntax">Basic syntax</a></li>
+                                <li><a href="#why-behind">Why a page falls behind</a></li>
+                                <li><a href="#dropped-patches">Which patches it drops</a></li>
+                                <li><a href="#batches">When it applies a batch</a></li>
+                                <li><a href="#behind-event">The newest-frame-behind event</a></li>
+                                <li><a href="#reopen">A slower stream with __reopen</a></li>
+                                <li><a href="#requirements">Requirements</a></li>
+                            </ul>
+                        </li>
                         <li><a href="#demo">1. Live demo</a></li>
                         <li><a href="#measured">2. Measured in lith</a></li>
                         <li><a href="#profile">3. In a Chrome profile</a></li>
-                        <li><a href="#server">4. Pacing on the server instead</a></li>
-                        <li><a href="#frames">5. Cheaper frames first</a></li>
+                        <li><a href="#server">4. Pacing on the server instead</a>
+                            <ul class="toc-sub">
+                                <li><a href="#pace-when-behind">Pacing only a page that is behind</a></li>
+                                <li><a href="#which-to-use">Which to use</a></li>
+                            </ul>
+                        </li>
+                        <li><a href="#frames">5. Cheaper frames first</a>
+                            <ul class="toc-sub">
+                                <li><a href="#cannot-shrink">A frame that cannot shrink</a></li>
+                            </ul>
+                        </li>
                     </ul>
                 </div>
             </details>
@@ -156,7 +178,7 @@
                 <h2>Usage</h2>
                 <p>The <code>data-newest-frame</code> attribute watches the patch events of one SSE stream. A page that keeps up applies every frame as it comes. A page that falls behind applies only the newest frame of each view among those that arrived together, and tells you when it skips most of them.</p>
 
-                <h3>Basic syntax</h3>
+                <h3 id="basic-syntax">Basic syntax</h3>
                 <pre class="code"><code>data-newest-frame[:stream-id][__reopen]</code></pre>
                 <ul>
                     <li><strong>Stream:</strong> the element whose <code>@get</code> opened the stream, <code>#stream</code> by default. Name another id after the colon: <code>data-newest-frame:feed</code>. HTML lowercases attribute names, so the id has to be lowercase.</li>
@@ -168,7 +190,7 @@
   &lt;div id="board"&gt;...&lt;/div&gt;
 &lt;/body&gt;</code></pre>
 
-                <h3>Why a page falls behind</h3>
+                <h3 id="why-behind">Why a page falls behind</h3>
                 <p>A server that streams ten frames a second never waits for the page: the browser and the kernel take minutes of frames before a write blocks. A page whose main thread needs more than 100 ms per frame falls behind, and the server cannot tell.</p>
                 <ul>
                     <li><strong>Chromium</strong> then hands the page up to 2 MiB of the stream at each read. Datastar parses the chunk and applies every frame in it inside one task, with no paint in between: seconds of frozen page, showing a board that is already old when it appears.</li>
@@ -203,7 +225,7 @@
                     <figcaption>Measured in Chromium 154 over HTTP/2 with lith's Game of Life. The 6 MiB window holds about 50 minutes of this backlog, so the server never notices. Over HTTP/1.1 the kernel's socket buffers hold it instead. Firefox keeps the frames in its parent process and hands the page one per task: it keeps painting, but falls behind just as far.</figcaption>
                 </figure>
 
-                <h3>Which patches it drops</h3>
+                <h3 id="dropped-patches">Which patches it drops</h3>
                 <p>A <code>datastar-patch-elements</code> event is a frame of a view when it replaces that view wholly. Of the frames of one view that arrive together, only the newest is applied; the others are dropped. Everything else keeps its place in the order and is never dropped.</p>
                 <div class="split">
                     <div>
@@ -225,10 +247,10 @@
                     </div>
                 </div>
 
-                <h3>When it applies a batch</h3>
+                <h3 id="batches">When it applies a batch</h3>
                 <p>Datastar dispatches every event of a chunk at once and reads the next chunk after a microtask, so the plugin holds the events of a chunk and passes them on in one batch at the end of it. It waits for the next animation frame when it passed a batch on less than a frame before, and after each batch it waits half as long as that batch took to apply. A page that keeps up gets each frame at once; a page that is behind paints between batches, and Firefox's frames gather during the wait. The pause counts only the time to apply the batch: the layout and paint that the applied frame causes run in it, so on a very slow phone the main thread stays busy, but it paints every frame it applies (<a href="#profile">profile</a>).</p>
 
-                <h3>The newest-frame-behind event</h3>
+                <h3 id="behind-event">The newest-frame-behind event</h3>
                 <p>When more than half of the frames of the last 3 seconds were skipped, at least 10 frames, the plugin dispatches <code>newest-frame-behind</code> on the stream's element. It bubbles, and the counts start over, so a page that stays behind gets one about every 3 seconds.</p>
                 <ul>
                     <li><code>evt.detail.id</code>: the stream's id</li>
@@ -239,14 +261,14 @@
                 </ul>
                 <pre class="code" data-lang="html"><code>&lt;body data-newest-frame data-on:newest-frame-behind="$behind = evt.detail.skipped + ' of ' + evt.detail.frames + ' frames skipped'"&gt;</code></pre>
 
-                <h3>Asking for a slower stream with __reopen</h3>
+                <h3 id="reopen">Asking for a slower stream with __reopen</h3>
                 <p>With <code>__reopen</code>, the first time the page falls behind the plugin sets <code>$_slow</code> to <code>true</code> and replaces the stream's element with a copy of itself. Its <code>data-init</code> runs again and opens the stream at the same URL, so Datastar aborts the old request; send a header while <code>$_slow</code> is set and the server can answer with fewer frames. It asks once, and never when <code>$_slow</code> is already true, for example because the page measured a slow link as it started.</p>
                 <pre class="code" data-lang="html"><code>&lt;body data-signals:_slow="false" data-newest-frame__reopen&gt;
   &lt;div id="stream" data-init="@get('/stream', {headers: $_slow ? {'Save-Data': 'on'} : {}})"&gt;&lt;/div&gt;
 &lt;/body&gt;</code></pre>
                 <p class="fine">This is how <a href="https://github.com/zweiundeins/lith">lith</a> uses it: its template and its site load the plugin with <code>__reopen</code>, and a stream whose request carries <code>Save-Data: on</code> sends each view at most four times a second.</p>
 
-                <h3>Requirements</h3>
+                <h3 id="requirements">Requirements</h3>
                 <p class="fine">Datastar 1.0, with an import map that maps <code>datastar</code> and comes before every module script; Firefox ignores an import map that comes later. The plugin reads the <code>datastar-fetch</code> events that Datastar dispatches for every SSE event (their <code>type</code>, <code>el</code> and <code>argsRaw</code>), which Datastar 1.0.x does not document; its own virtual-scroll example dispatches them the same way.</p>
             </section>
 
@@ -460,7 +482,7 @@
                     </table>
                 </div>
 
-                <h3>Pacing only a page that is behind</h3>
+                <h3 id="pace-when-behind">Pacing only a page that is behind</h3>
                 <p>The two combine. Stream normally with the plugin on the page, and when it fires <code>newest-frame-behind</code>, ask the server once to pace that stream. The server stops pacing when every acknowledgement has come back within a tick for 5 seconds.</p>
                 <pre class="code" data-lang="html"><code>&lt;body data-newest-frame
       data-on:newest-frame-behind="@post('/pace?tab=' + $_tab, {requestCancellation: 'disabled'})"&gt;</code></pre>
@@ -484,7 +506,7 @@
                 </div>
                 <p class="fine">15× CPU, 150 seconds, the median of three runs; the last column is one run each. The page asked for pacing 2.2 seconds in. On a page slow for 60 seconds and then fast, pacing ended 5 to 6 seconds after the CPU sped up and the page went back to ten frames a second; with <code>__reopen</code> it stays on the slow stream. In an in-process load test of 1,000 streams with a tenth of them slow, pacing every stream took 9,200 acknowledgements a second and 2.3 times the CPU; pacing only the slow ones took 250 a second, within the plugin's range.</p>
 
-                <h3>Which to use</h3>
+                <h3 id="which-to-use">Which to use</h3>
                 <ul>
                     <li><strong>A slow phone on a fast link:</strong> both work about equally well. Pacing on the server sends the fewest bytes and had the best worst case when the page acknowledged after the paint.</li>
                     <li><strong>A fast phone on a far link:</strong> the plugin does nothing while the page keeps up. Pacing on the server caps the page at W frames per round trip, and every viewer sends a request per frame: on this demo, ten a second for each viewer that keeps up. Pacing only after <code>newest-frame-behind</code> avoids both.</li>
@@ -520,7 +542,7 @@
                     <figcaption><strong>The SVG board at 15×, no plugin, same 8 seconds as Demo 3.</strong> Only short tasks and no backlog. Rendering now takes more of the main thread than script: the page is busy drawing, not morphing.</figcaption>
                 </figure>
 
-                <h3>A frame that cannot shrink</h3>
+                <h3 id="cannot-shrink">A frame that cannot shrink</h3>
                 <p>Not every view fits in one path. An 80 by 24 terminal where nearly every cell changes each frame, one <code>&lt;span&gt;</code> per character, has 1,945 elements and falls behind from 15×. Merging runs of one colour into one span leaves 334 elements and moves the break to 50×.</p>
                 <div class="table-scroll">
                     <table class="compare">
