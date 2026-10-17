@@ -419,13 +419,37 @@
                     </table>
                 </div>
 
+                <h3>Pacing only a page that is behind</h3>
+                <p>The two combine. Stream normally with the plugin on the page, and when it fires <code>newest-frame-behind</code>, ask the server once to pace that stream. The server stops pacing when every acknowledgement has come back within a tick for 5 seconds.</p>
+                <pre class="code" data-lang="html"><code>&lt;body data-newest-frame
+      data-on:newest-frame-behind="@post('/pace?tab=' + $_tab, {requestCancellation: 'disabled'})"&gt;</code></pre>
+                <p class="fine">Put the listener on <code>&lt;body&gt;</code>, not on the stream's element: a request from that element aborts its own stream.</p>
+
+                <figure class="shot">
+                    <a href="demo/img/flame-switch-inplace-8s.png"><img src="demo/img/flame-switch-inplace-8s.png" width="1800" height="1100" loading="lazy" alt="DevTools Performance panel: short full-speed tasks, then at 15x one frame per task with rendering after it; the Network track shows the pace request and one ack per frame after it."></a>
+                    <figcaption><strong>The switch.</strong> Full speed until about 1.5 seconds, then 15× CPU: the plugin applies one frame per task, fires <code>newest-frame-behind</code>, and the Network track shows the <code>pace</code> request and one <code>ack</code> per frame after it. From then on each read holds a single frame.</figcaption>
+                </figure>
+
+                <div class="table-scroll">
+                    <table class="compare">
+                        <thead><tr><th>Measured 17 October</th><th>Behind, median</th><th>at most</th><th>Server sent</th><th>Acks/s</th><th>300 ms round trip, fast phone</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">Plugin</th><td>0.28 s</td><td>1.03 s</td><td>7.0 KB/s</td><td>0</td><td>10.1 fps</td></tr>
+                            <tr><th scope="row">Plugin, <code>__reopen</code></th><td>0.62 s</td><td>1.21 s</td><td>3.4 KB/s</td><td>0</td><td>10.1 fps</td></tr>
+                            <tr><th scope="row">Server, W=1, ack after paint</th><td>0.31 s</td><td>0.72 s</td><td>1.9 KB/s</td><td>2.5</td><td>2.8 fps</td></tr>
+                            <tr><th scope="row">Plugin, then server pacing</th><td>0.34 s</td><td>0.70 s</td><td>2.2 KB/s</td><td>2.4</td><td>10.1 fps, never paced</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="fine">15× CPU, 150 seconds, the median of three runs; the last column is one run each. The page asked for pacing 2.2 seconds in. On a page slow for 60 seconds and then fast, pacing ended 5 to 6 seconds after the CPU sped up and the page went back to ten frames a second; with <code>__reopen</code> it stays on the slow stream. In an in-process load test of 1,000 streams with a tenth of them slow, pacing every stream took 9,200 acknowledgements a second and 2.3 times the CPU; pacing only the slow ones took 250 a second, within the plugin's range.</p>
+
                 <h3>Which to use</h3>
                 <ul>
                     <li><strong>A slow phone on a fast link:</strong> both work about equally well. Pacing on the server sends the fewest bytes and had the best worst case when the page acknowledged after the paint.</li>
-                    <li><strong>A fast phone on a far link:</strong> the plugin does nothing while the page keeps up. Pacing on the server caps the page at W frames per round trip, and every viewer sends a request per frame: on this demo, ten a second for each viewer that keeps up.</li>
-                    <li><strong>Many viewers of one view:</strong> the plugin costs the server nothing per viewer, but slow pages receive frames they throw away. Pacing on the server saves those bytes and costs a request per frame from everyone. This case follows from the numbers above; it was not load-tested.</li>
+                    <li><strong>A fast phone on a far link:</strong> the plugin does nothing while the page keeps up. Pacing on the server caps the page at W frames per round trip, and every viewer sends a request per frame: on this demo, ten a second for each viewer that keeps up. Pacing only after <code>newest-frame-behind</code> avoids both.</li>
+                    <li><strong>Many viewers of one view:</strong> the plugin costs the server nothing per viewer, but slow pages receive frames they throw away. Pacing every stream saves those bytes and costs a request per frame from everyone. Pacing only the pages that fall behind keeps both costs low.</li>
                 </ul>
-                <p class="fine">Measured on 16 October 2026 in lith's <code>TestLifeDrift</code> on one Linux machine (Intel i5-13500), headless Chromium 154 with DevTools' CPU throttling standing in for a slow phone. The far-link runs are one run each. The server-side pacing is a prototype in lith, not part of a release. The <code>newest-frame-behind</code> event could switch a stream to it only once the page falls behind, which would save the bytes without a request per frame from every viewer; that is not built yet.</p>
+                <p class="fine">Measured on 16 October 2026 in lith's <code>TestLifeDrift</code> on one Linux machine (Intel i5-13500), headless Chromium 154 with DevTools' CPU throttling standing in for a slow phone. The far-link runs are one run each. The server-side pacing is a prototype in lith, not part of a release. Pacing after <code>newest-frame-behind</code> is a prototype too, in lith's <code>hybrid</code> branch.</p>
             </section>
         </main>
     </div>
