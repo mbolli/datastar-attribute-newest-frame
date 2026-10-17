@@ -75,6 +75,10 @@
             .compare { font-size: .8rem; }
             .compare th, .compare td { padding: .4rem .25rem; }
         }
+        .shot { margin: 1.25rem 0; }
+        .shot img { display: block; inline-size: 100%; block-size: auto; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+        .shot figcaption { margin-top: .5rem; font-size: .88rem; color: var(--muted); }
+        .shot figcaption strong { color: var(--ink); }
         @media (forced-colors: active) {
             .key, .bar { forced-color-adjust: none; background: CanvasText; }
             .key-with, .bar-with { background: Highlight; }
@@ -121,6 +125,8 @@
                         <li><a href="#usage-guide">Usage guide</a></li>
                         <li><a href="#demo">1. Live demo</a></li>
                         <li><a href="#measured">2. Measured in lith</a></li>
+                        <li><a href="#profile">3. In a Chrome profile</a></li>
+                        <li><a href="#server">4. Pacing on the server instead</a></li>
                     </ul>
                 </div>
             </details>
@@ -180,7 +186,7 @@
                 </div>
 
                 <h3>When it applies a batch</h3>
-                <p>Datastar dispatches every event of a chunk at once and reads the next chunk after a microtask, so the plugin holds the events of a chunk and passes them on in one batch at the end of it. It waits for the next animation frame when it passed a batch on less than a frame before, and after each batch it waits half as long as that batch took to apply. A page that keeps up gets each frame at once; a page that is behind paints between batches, and Firefox's frames gather during the wait.</p>
+                <p>Datastar dispatches every event of a chunk at once and reads the next chunk after a microtask, so the plugin holds the events of a chunk and passes them on in one batch at the end of it. It waits for the next animation frame when it passed a batch on less than a frame before, and after each batch it waits half as long as that batch took to apply. A page that keeps up gets each frame at once; a page that is behind paints between batches, and Firefox's frames gather during the wait. The pause counts only the time to apply the batch: the layout and paint that the applied frame causes run in it, so on a very slow phone the main thread stays busy, but it paints every frame it applies (<a href="#profile">profile</a>).</p>
 
                 <h3>The newest-frame-behind event</h3>
                 <p>When more than half of the frames of the last 3 seconds were skipped, at least 10 frames, the plugin dispatches <code>newest-frame-behind</code> on the stream's element. It bubbles, and the counts start over, so a page that stays behind gets one about every 3 seconds.</p>
@@ -342,6 +348,84 @@
                     </table>
                 </div>
                 <p class="fine">These runs applied the newest-frame rule from a page script that held the frames until the next animation frame; the plugin applies the same rule and adds the pause after each batch. Where the page skipped most frames (Firefox at 150 and 300 ms, Chromium at 300 ms), it also switched to lith's slower stream, after 1.7 to 2.8 seconds. lith's v0.3.0 release measured the plugin itself: at 300 ms a frame, Chromium 154 and Firefox 158 both stayed within 0.8 s, and at 15× CPU Chromium stayed 0.68 s behind at the median, 1.08 s at most, against 42.6 s without it. At 0 ms both engines applied every frame (1,211 of 1,211 in Firefox, 1,210 of 1,210 in Chromium).</p>
+            </section>
+
+            <section class="card" id="profile">
+                <span class="card-num">Demo 3</span>
+                <h2>In a Chrome profile</h2>
+                <p>Traces of lith's Game of Life, recorded on 16 October 2026 with CDP tracing in headless Chromium 154, its CPU slowed 15 times, behind Caddy over HTTP/2, and opened in Chromium's own DevTools Performance panel. Both screenshots cover the same 8 seconds. The yellow Timings row holds marks the test page adds: one <code>lith:apply board</code> per frame applied.</p>
+
+                <figure class="shot">
+                    <a href="demo/img/flame-1-noplugin-8s.png"><img src="demo/img/flame-1-noplugin-8s.png" width="2000" height="1000" loading="lazy" alt="DevTools Performance panel without the plugin: one long task spans 7.2 of the 8 seconds, with 45 Event dispatch blocks under Run microtasks and no paint until it ends."></a>
+                    <figcaption><strong>Without the plugin.</strong> One task of 7.2 seconds. It starts with one read of the stream of exactly 2,097,152 bytes, and Datastar applies the 45 frames in it one after another (the 45 <em>Event dispatch</em> blocks), at about 145 ms each. The browser cannot paint inside a task, so the board stays frozen for 7 seconds and then jumps. Over 20 seconds the page painted twice, 7.6 seconds apart, and spent 91% of the main thread morphing.</figcaption>
+                </figure>
+
+                <figure class="shot">
+                    <a href="demo/img/flame-3-reopen-8s.png"><img src="demo/img/flame-3-reopen-8s.png" width="2000" height="1000" loading="lazy" alt="DevTools Performance panel with the plugin: a regular rhythm of short tasks, each applying one frame, followed by purple rendering and a green paint."></a>
+                    <figcaption><strong>With the plugin and <code>__reopen</code>.</strong> One frame per task, then a rendering task (purple and green) and a paint, about two a second. The Frames row along the top is full. The page is still 97% busy: half of it applies frames, and the other half lays out and paints them (paint 40%, the demo's sparkline 25%, layout 24%), which fills the pause the plugin leaves after each batch.</figcaption>
+                </figure>
+
+                <div class="table-scroll">
+                    <table class="compare">
+                        <thead><tr><th>20 s trace, 15× CPU</th><th>Longest task</th><th>Frames a task</th><th>Bytes a read</th><th>Paints</th><th>Longest gap</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">Without the plugin</th><td>7.2 s</td><td>45</td><td>2 MiB</td><td>2</td><td>7.6 s</td></tr>
+                            <tr><th scope="row">With the plugin</th><td>0.52 s</td><td>1</td><td>186 KB</td><td>44</td><td>0.75 s</td></tr>
+                            <tr><th scope="row">With <code>__reopen</code></th><td>0.45 s</td><td>1</td><td>93 KB</td><td>44</td><td>0.70 s</td></tr>
+                            <tr><th scope="row">1× CPU, with the plugin</th><td>0.05 s</td><td>1</td><td>47 KB</td><td>1,067</td><td>0.07 s</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="fine">At full speed the trace with the plugin looks like the one without it (1,067 paints in 20 seconds against 1,053): the plugin applies every frame as it arrives. With <code>Cache-Control: no-cache</code> or none instead of <code>no-store</code> on the stream, Chromium sends it through its HTTP cache and two or three 2 MiB reads can land in one task, so the longest freeze without the plugin grew to 14.6 seconds. The lag stayed the same in Chromium and Firefox, over HTTP/2 and HTTP/1.1. Send <code>no-store</code>.</p>
+            </section>
+
+            <section class="card" id="server">
+                <span class="card-num">Demo 4</span>
+                <h2>Pacing on the server instead</h2>
+                <p>The server cannot see a slow page in its own writes, but it can if the page tells it. For comparison, lith got a prototype of that: each frame ends with an element whose <code>data-init</code> posts an acknowledgement, and the server keeps at most W frames unacknowledged per stream. When an acknowledgement arrives it sends the view's newest frame, so the frames in between never leave the server.</p>
+                <pre class="code" data-lang="html"><code>&lt;i id="ack-42" data-init="@post('/ack?tab=…&amp;n=42', {requestCancellation: 'disabled'})"&gt;&lt;/i&gt;</code></pre>
+
+                <figure class="shot">
+                    <a href="demo/img/flame-4-ack1-8s.png"><img src="demo/img/flame-4-ack1-8s.png" width="2000" height="1000" loading="lazy" alt="DevTools Performance panel with server-side pacing: one frame per task followed by rendering and paint, with one ack request per frame on the Network track."></a>
+                    <figcaption><strong>Server-side pacing, W=1, same 8 seconds.</strong> The same rhythm as with the plugin, reached from the other side: each stream read holds one frame, and the Network track shows one <code>ack</code> request per frame.</figcaption>
+                </figure>
+
+                <p><strong>A slow phone on a fast link.</strong> 15× CPU, Caddy over HTTP/2, 150 seconds, the median of three runs:</p>
+                <div class="table-scroll">
+                    <table class="compare">
+                        <thead><tr><th>Configuration</th><th>Behind, median</th><th>at most</th><th>Frames/s</th><th>Server sent</th><th>Requests/s</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">No plugin</th><td>27 s</td><td>50 s</td><td>6.9</td><td>7.2 KB/s</td><td>0</td></tr>
+                            <tr><th scope="row">Plugin</th><td>0.32 s</td><td>0.94 s</td><td>2.6</td><td>7.1 KB/s</td><td>0</td></tr>
+                            <tr><th scope="row">Plugin, <code>__reopen</code></th><td>0.64 s</td><td>1.16 s</td><td>2.8</td><td>3.2 KB/s</td><td>0</td></tr>
+                            <tr><th scope="row">Server, W=1</th><td>0.46 s</td><td>1.16 s</td><td>2.7</td><td>2.1 KB/s</td><td>2.7</td></tr>
+                            <tr><th scope="row">Server, W=2</th><td>0.57 s</td><td>1.21 s</td><td>3.7</td><td>2.7 KB/s</td><td>3.7</td></tr>
+                            <tr><th scope="row">Server, W=1, ack after paint</th><td>0.33 s</td><td>0.70 s</td><td>2.5</td><td>1.9 KB/s</td><td>2.5</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="fine">Frames/s is how many frames the page applied a second; the stream sends ten. Without the plugin the page applies 6.9 a second but paints only every 7 seconds. "Ack after paint" posts from <code>requestAnimationFrame</code> instead of right after the morph.</p>
+
+                <p><strong>A fast phone on a far link.</strong> No CPU slowdown, a proxy adding the round trip, 90 seconds, frames the page applied a second:</p>
+                <div class="table-scroll">
+                    <table class="compare">
+                        <thead><tr><th>Configuration</th><th>100 ms round trip</th><th>300 ms round trip</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">No plugin</th><td>10.1</td><td>10.1</td></tr>
+                            <tr><th scope="row">Plugin, <code>__reopen</code></th><td>10.1</td><td>10.1</td></tr>
+                            <tr><th scope="row">Server, W=1</th><td>7.1</td><td>2.9</td></tr>
+                            <tr><th scope="row">Server, W=2</th><td>10.1</td><td>5.8</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Which to use</h3>
+                <ul>
+                    <li><strong>A slow phone on a fast link:</strong> both work about equally well. Pacing on the server sends the fewest bytes and had the best worst case when the page acknowledged after the paint.</li>
+                    <li><strong>A fast phone on a far link:</strong> the plugin does nothing while the page keeps up. Pacing on the server caps the page at W frames per round trip, and every viewer sends a request per frame: on this demo, ten a second for each viewer that keeps up.</li>
+                    <li><strong>Many viewers of one view:</strong> the plugin costs the server nothing per viewer, but slow pages receive frames they throw away. Pacing on the server saves those bytes and costs a request per frame from everyone. This case follows from the numbers above; it was not load-tested.</li>
+                </ul>
+                <p class="fine">Measured on 16 October 2026 in lith's <code>TestLifeDrift</code> on one Linux machine (Intel i5-13500), headless Chromium 154 with DevTools' CPU throttling standing in for a slow phone. The far-link runs are one run each. The server-side pacing is a prototype in lith, not part of a release. The <code>newest-frame-behind</code> event could switch a stream to it only once the page falls behind, which would save the bytes without a request per frame from every viewer; that is not built yet.</p>
             </section>
         </main>
     </div>
