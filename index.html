@@ -93,6 +93,15 @@
         .matrix .fair { background: light-dark(#fbf0d9, #2e2513); } .matrix .fair i { color: light-dark(#8a5a00, #e8b54a); }
         .matrix .poor { background: light-dark(#fbe6e3, #33191a); } .matrix .poor i { color: light-dark(#b42d2d, #f08a80); }
         .matrix .na { border: 1px dashed var(--line); color: var(--muted); font: 400 .7rem/1.3 var(--mono); }
+        .more { margin: 1.25rem 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+        .more > summary { cursor: pointer; list-style: none; padding: .7rem 2.5rem .7rem 1rem; position: relative; font-weight: 600; font-size: .92rem; color: var(--accent); }
+        .more > summary::-webkit-details-marker { display: none; }
+        .more > summary::after { content: '+'; position: absolute; right: 1rem; top: .6rem; font: 400 1.1rem/1 var(--mono); }
+        .more[open] > summary::after { content: '\2212'; }
+        .more[open] > summary { border-bottom: 1px solid var(--line); }
+        .more > :not(summary) { margin-inline: 1rem; }
+        .more > :last-child { margin-bottom: 1rem; }
+        .more > summary + * { margin-top: 1rem; }
         .flow { margin: 1.25rem 0; }
         .flow svg { display: block; inline-size: 100%; min-inline-size: 40rem; block-size: auto; color: var(--ink); font-size: 15px; }
         .flow svg text { fill: currentColor; }
@@ -384,49 +393,52 @@
                 </figure>
                 <p class="fine">Two minutes per run with DevTools' CPU throttling, Caddy in front with TLS and HTTP/2. At 1× the page applied all ten frames a second with or without the plugin. At 15× and 30× the plugin, with <code>__reopen</code>, asked lith for a slower stream after 3.3 and 4.1 seconds; lith then sends each view at most every 250 ms. Without the plugin, the page at 30× painted once every 14 seconds.</p>
 
-                <figure class="bars" aria-labelledby="firefox-bars">
-                    <figcaption id="firefox-bars">Firefox, a fixed cost per frame: seconds behind after 110 seconds</figcaption>
-                    <ul class="legend">
-                        <li><span class="key"></span>Without the plugin</li>
-                        <li><span class="key key-with"></span>With the newest-frame rule</li>
-                    </ul>
-                    <div class="bar-group">
-                        <span>0 ms a frame</span>
-                        <div class="bar-row"><span class="bar" style="--v: 0;"></span><span class="bar-value">0 s</span></div>
-                        <div class="bar-row"><span class="bar bar-with" style="--v: 0;"></span><span class="bar-value">0 s</span></div>
+                <details class="more">
+                    <summary>Firefox, and Chromium with the same handicap</summary>
+                    <figure class="bars" aria-labelledby="firefox-bars">
+                        <figcaption id="firefox-bars">Firefox, a fixed cost per frame: seconds behind after 110 seconds</figcaption>
+                        <ul class="legend">
+                            <li><span class="key"></span>Without the plugin</li>
+                            <li><span class="key key-with"></span>With the newest-frame rule</li>
+                        </ul>
+                        <div class="bar-group">
+                            <span>0 ms a frame</span>
+                            <div class="bar-row"><span class="bar" style="--v: 0;"></span><span class="bar-value">0 s</span></div>
+                            <div class="bar-row"><span class="bar bar-with" style="--v: 0;"></span><span class="bar-value">0 s</span></div>
+                        </div>
+                        <div class="bar-group">
+                            <span>80 ms a frame</span>
+                            <div class="bar-row"><span class="bar" style="--v: .028;"></span><span class="bar-value">2.8 s</span></div>
+                            <div class="bar-row"><span class="bar bar-with" style="--v: .0014;"></span><span class="bar-value">0.14 s, at most 0.56 s</span></div>
+                        </div>
+                        <div class="bar-group">
+                            <span>150 ms a frame</span>
+                            <div class="bar-row"><span class="bar" style="--v: .46;"></span><span class="bar-value">46 s</span></div>
+                            <div class="bar-row"><span class="bar bar-with" style="--v: .0065;"></span><span class="bar-value">0.65 s, at most 0.65 s</span></div>
+                        </div>
+                        <div class="bar-group">
+                            <span>300 ms a frame</span>
+                            <div class="bar-row"><span class="bar" style="--v: .77;"></span><span class="bar-value">77 s</span></div>
+                            <div class="bar-row"><span class="bar bar-with" style="--v: .0086;"></span><span class="bar-value">0.86 s, at most 1.16 s</span></div>
+                        </div>
+                    </figure>
+                    <p class="fine">Firefox has no CPU throttling, so a script busy-waited a fixed time after each frame Datastar applied, as the live demo above does. A frame then took that cost plus about 6 ms in Firefox and 8.5 ms in Chromium; 80 ms is about 9× CPU in the DevTools runs, 150 ms about 17×, 300 ms about 34×. Chromium got the same handicap:</p>
+                    <div class="table-scroll">
+                        <table class="compare">
+                            <thead>
+                                <tr><th rowspan="2">Cost a frame</th><th colspan="2" scope="colgroup">Firefox</th><th colspan="2" scope="colgroup">Chromium</th></tr>
+                                <tr><th scope="col">without</th><th scope="col">with</th><th scope="col">without</th><th scope="col">with</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><th scope="row">0 ms</th><td>0 s</td><td>0 s</td><td>0 s</td><td>0 s</td></tr>
+                                <tr><th scope="row">80 ms</th><td>2.8 s</td><td>0.14 s</td><td>0.11 s</td><td>0.02 s</td></tr>
+                                <tr><th scope="row">150 ms</th><td>46 s</td><td>0.65 s</td><td>42 s</td><td>0.28 s</td></tr>
+                                <tr><th scope="row">300 ms</th><td>77 s</td><td>0.86 s</td><td>75 s</td><td>0.77 s</td></tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="bar-group">
-                        <span>80 ms a frame</span>
-                        <div class="bar-row"><span class="bar" style="--v: .028;"></span><span class="bar-value">2.8 s</span></div>
-                        <div class="bar-row"><span class="bar bar-with" style="--v: .0014;"></span><span class="bar-value">0.14 s, at most 0.56 s</span></div>
-                    </div>
-                    <div class="bar-group">
-                        <span>150 ms a frame</span>
-                        <div class="bar-row"><span class="bar" style="--v: .46;"></span><span class="bar-value">46 s</span></div>
-                        <div class="bar-row"><span class="bar bar-with" style="--v: .0065;"></span><span class="bar-value">0.65 s, at most 0.65 s</span></div>
-                    </div>
-                    <div class="bar-group">
-                        <span>300 ms a frame</span>
-                        <div class="bar-row"><span class="bar" style="--v: .77;"></span><span class="bar-value">77 s</span></div>
-                        <div class="bar-row"><span class="bar bar-with" style="--v: .0086;"></span><span class="bar-value">0.86 s, at most 1.16 s</span></div>
-                    </div>
-                </figure>
-                <p class="fine">Firefox has no CPU throttling, so a script busy-waited a fixed time after each frame Datastar applied, as the live demo above does. A frame then took that cost plus about 6 ms in Firefox and 8.5 ms in Chromium; 80 ms is about 9× CPU in the DevTools runs, 150 ms about 17×, 300 ms about 34×. Chromium got the same handicap:</p>
-                <div class="table-scroll">
-                    <table class="compare">
-                        <thead>
-                            <tr><th rowspan="2">Cost a frame</th><th colspan="2" scope="colgroup">Firefox</th><th colspan="2" scope="colgroup">Chromium</th></tr>
-                            <tr><th scope="col">without</th><th scope="col">with</th><th scope="col">without</th><th scope="col">with</th></tr>
-                        </thead>
-                        <tbody>
-                            <tr><th scope="row">0 ms</th><td>0 s</td><td>0 s</td><td>0 s</td><td>0 s</td></tr>
-                            <tr><th scope="row">80 ms</th><td>2.8 s</td><td>0.14 s</td><td>0.11 s</td><td>0.02 s</td></tr>
-                            <tr><th scope="row">150 ms</th><td>46 s</td><td>0.65 s</td><td>42 s</td><td>0.28 s</td></tr>
-                            <tr><th scope="row">300 ms</th><td>77 s</td><td>0.86 s</td><td>75 s</td><td>0.77 s</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-                <p class="fine">These runs applied the newest-frame rule from a page script that held the frames until the next animation frame; the plugin applies the same rule and adds the pause after each batch. Where the page skipped most frames (Firefox at 150 and 300 ms, Chromium at 300 ms), it also switched to lith's slower stream, after 1.7 to 2.8 seconds. lith's v0.3.0 release measured the plugin itself: at 300 ms a frame, Chromium 154 and Firefox 158 both stayed within 0.8 s, and at 15× CPU Chromium stayed 0.68 s behind at the median, 1.08 s at most, against 42.6 s without it. At 0 ms both engines applied every frame (1,211 of 1,211 in Firefox, 1,210 of 1,210 in Chromium).</p>
+                    <p class="fine">These runs applied the newest-frame rule from a page script that held the frames until the next animation frame; the plugin applies the same rule and adds the pause after each batch. Where the page skipped most frames (Firefox at 150 and 300 ms, Chromium at 300 ms), it also switched to lith's slower stream, after 1.7 to 2.8 seconds. lith's v0.3.0 release measured the plugin itself: at 300 ms a frame, Chromium 154 and Firefox 158 both stayed within 0.8 s, and at 15× CPU Chromium stayed 0.68 s behind at the median, 1.08 s at most, against 42.6 s without it. At 0 ms both engines applied every frame (1,211 of 1,211 in Firefox, 1,210 of 1,210 in Chromium).</p>
+                </details>
             </section>
 
             <section class="card" id="profile">
@@ -444,18 +456,21 @@
                     <figcaption><strong>With the plugin and <code>__reopen</code>.</strong> One frame per task, then a rendering task (purple and green) and a paint, about two a second. The Frames row along the top is full. The page is still 97% busy: half of it applies frames, and the other half lays out and paints them (paint 40%, the demo's sparkline 25%, layout 24%), which fills the pause the plugin leaves after each batch.</figcaption>
                 </figure>
 
-                <div class="table-scroll">
-                    <table class="compare">
-                        <thead><tr><th>20 s trace, 15× CPU</th><th>Longest task</th><th>Frames a task</th><th>Bytes a read</th><th>Paints</th><th>Longest gap</th></tr></thead>
-                        <tbody>
-                            <tr><th scope="row">Without the plugin</th><td>7.2 s</td><td>45</td><td>2 MiB</td><td>2</td><td>7.6 s</td></tr>
-                            <tr><th scope="row">With the plugin</th><td>0.52 s</td><td>1</td><td>186 KB</td><td>44</td><td>0.75 s</td></tr>
-                            <tr><th scope="row">With <code>__reopen</code></th><td>0.45 s</td><td>1</td><td>93 KB</td><td>44</td><td>0.70 s</td></tr>
-                            <tr><th scope="row">1× CPU, with the plugin</th><td>0.05 s</td><td>1</td><td>47 KB</td><td>1,067</td><td>0.07 s</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-                <p class="fine">At full speed the trace with the plugin looks like the one without it (1,067 paints in 20 seconds against 1,053): the plugin applies every frame as it arrives. With <code>Cache-Control: no-cache</code> or none instead of <code>no-store</code> on the stream, Chromium sends it through its HTTP cache and two or three 2 MiB reads can land in one task, so the longest freeze without the plugin grew to 14.6 seconds. The lag stayed the same in Chromium and Firefox, over HTTP/2 and HTTP/1.1. Send <code>no-store</code>.</p>
+                <details class="more">
+                    <summary>Trace numbers, and Cache-Control</summary>
+                    <div class="table-scroll">
+                        <table class="compare">
+                            <thead><tr><th>20 s trace, 15× CPU</th><th>Longest task</th><th>Frames a task</th><th>Bytes a read</th><th>Paints</th><th>Longest gap</th></tr></thead>
+                            <tbody>
+                                <tr><th scope="row">Without the plugin</th><td>7.2 s</td><td>45</td><td>2 MiB</td><td>2</td><td>7.6 s</td></tr>
+                                <tr><th scope="row">With the plugin</th><td>0.52 s</td><td>1</td><td>186 KB</td><td>44</td><td>0.75 s</td></tr>
+                                <tr><th scope="row">With <code>__reopen</code></th><td>0.45 s</td><td>1</td><td>93 KB</td><td>44</td><td>0.70 s</td></tr>
+                                <tr><th scope="row">1× CPU, with the plugin</th><td>0.05 s</td><td>1</td><td>47 KB</td><td>1,067</td><td>0.07 s</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="fine">At full speed the trace with the plugin looks like the one without it (1,067 paints in 20 seconds against 1,053): the plugin applies every frame as it arrives. With <code>Cache-Control: no-cache</code> or none instead of <code>no-store</code> on the stream, Chromium sends it through its HTTP cache and two or three 2 MiB reads can land in one task, so the longest freeze without the plugin grew to 14.6 seconds. The lag stayed the same in Chromium and Firefox, over HTTP/2 and HTTP/1.1. Send <code>no-store</code>.</p>
+                </details>
             </section>
 
             <section class="card" id="server">
@@ -470,34 +485,37 @@
                     <figcaption><strong>Server-side pacing, W=1, same 8 seconds.</strong> The same rhythm as with the plugin, reached from the other side: each stream read holds one frame, and the Network track shows one <code>ack</code> request per frame.</figcaption>
                 </figure>
 
-                <p><strong>A slow phone on a fast link.</strong> 15× CPU, Caddy over HTTP/2, 150 seconds, the median of three runs:</p>
-                <div class="table-scroll">
-                    <table class="compare">
-                        <thead><tr><th>Configuration</th><th>Behind, median</th><th>at most</th><th>Frames/s</th><th>Server sent</th><th>Requests/s</th></tr></thead>
-                        <tbody>
-                            <tr><th scope="row">No plugin</th><td>27 s</td><td>50 s</td><td>6.9</td><td>7.2 KB/s</td><td>0</td></tr>
-                            <tr><th scope="row">Plugin</th><td>0.32 s</td><td>0.94 s</td><td>2.6</td><td>7.1 KB/s</td><td>0</td></tr>
-                            <tr><th scope="row">Plugin, <code>__reopen</code></th><td>0.64 s</td><td>1.16 s</td><td>2.8</td><td>3.2 KB/s</td><td>0</td></tr>
-                            <tr><th scope="row">Server, W=1</th><td>0.46 s</td><td>1.16 s</td><td>2.7</td><td>2.1 KB/s</td><td>2.7</td></tr>
-                            <tr><th scope="row">Server, W=2</th><td>0.57 s</td><td>1.21 s</td><td>3.7</td><td>2.7 KB/s</td><td>3.7</td></tr>
-                            <tr><th scope="row">Server, W=1, ack after paint</th><td>0.33 s</td><td>0.70 s</td><td>2.5</td><td>1.9 KB/s</td><td>2.5</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-                <p class="fine">Frames/s is how many frames the page applied a second; the stream sends ten. Without the plugin the page applies 6.9 a second but paints only every 7 seconds. "Ack after paint" posts from <code>requestAnimationFrame</code> instead of right after the morph.</p>
+                <details class="more">
+                    <summary>Measured: a slow phone on a fast link, a fast phone on a far link</summary>
+                    <p><strong>A slow phone on a fast link.</strong> 15× CPU, Caddy over HTTP/2, 150 seconds, the median of three runs:</p>
+                    <div class="table-scroll">
+                        <table class="compare">
+                            <thead><tr><th>Configuration</th><th>Behind, median</th><th>at most</th><th>Frames/s</th><th>Server sent</th><th>Requests/s</th></tr></thead>
+                            <tbody>
+                                <tr><th scope="row">No plugin</th><td>27 s</td><td>50 s</td><td>6.9</td><td>7.2 KB/s</td><td>0</td></tr>
+                                <tr><th scope="row">Plugin</th><td>0.32 s</td><td>0.94 s</td><td>2.6</td><td>7.1 KB/s</td><td>0</td></tr>
+                                <tr><th scope="row">Plugin, <code>__reopen</code></th><td>0.64 s</td><td>1.16 s</td><td>2.8</td><td>3.2 KB/s</td><td>0</td></tr>
+                                <tr><th scope="row">Server, W=1</th><td>0.46 s</td><td>1.16 s</td><td>2.7</td><td>2.1 KB/s</td><td>2.7</td></tr>
+                                <tr><th scope="row">Server, W=2</th><td>0.57 s</td><td>1.21 s</td><td>3.7</td><td>2.7 KB/s</td><td>3.7</td></tr>
+                                <tr><th scope="row">Server, W=1, ack after paint</th><td>0.33 s</td><td>0.70 s</td><td>2.5</td><td>1.9 KB/s</td><td>2.5</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="fine">Frames/s is how many frames the page applied a second; the stream sends ten. Without the plugin the page applies 6.9 a second but paints only every 7 seconds. "Ack after paint" posts from <code>requestAnimationFrame</code> instead of right after the morph.</p>
 
-                <p><strong>A fast phone on a far link.</strong> No CPU slowdown, a proxy adding the round trip, 90 seconds, frames the page applied a second:</p>
-                <div class="table-scroll">
-                    <table class="compare">
-                        <thead><tr><th>Configuration</th><th>100 ms round trip</th><th>300 ms round trip</th></tr></thead>
-                        <tbody>
-                            <tr><th scope="row">No plugin</th><td>10.1</td><td>10.1</td></tr>
-                            <tr><th scope="row">Plugin, <code>__reopen</code></th><td>10.1</td><td>10.1</td></tr>
-                            <tr><th scope="row">Server, W=1</th><td>7.1</td><td>2.9</td></tr>
-                            <tr><th scope="row">Server, W=2</th><td>10.1</td><td>5.8</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+                    <p><strong>A fast phone on a far link.</strong> No CPU slowdown, a proxy adding the round trip, 90 seconds, frames the page applied a second:</p>
+                    <div class="table-scroll">
+                        <table class="compare">
+                            <thead><tr><th>Configuration</th><th>100 ms round trip</th><th>300 ms round trip</th></tr></thead>
+                            <tbody>
+                                <tr><th scope="row">No plugin</th><td>10.1</td><td>10.1</td></tr>
+                                <tr><th scope="row">Plugin, <code>__reopen</code></th><td>10.1</td><td>10.1</td></tr>
+                                <tr><th scope="row">Server, W=1</th><td>7.1</td><td>2.9</td></tr>
+                                <tr><th scope="row">Server, W=2</th><td>10.1</td><td>5.8</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
 
                 <h3 id="pace-when-behind">Pacing only a page that is behind</h3>
                 <p>The two combine. Stream normally with the plugin on the page, and when it fires <code>newest-frame-behind</code>, ask the server once to pace that stream. The server stops pacing when every acknowledgement has come back within a tick for 5 seconds.</p>
@@ -510,18 +528,21 @@
                     <figcaption><strong>The switch.</strong> Full speed until about 1.5 seconds, then 15× CPU: the plugin applies one frame per task, fires <code>newest-frame-behind</code>, and the Network track shows the <code>pace</code> request and one <code>ack</code> per frame after it. From then on each read holds a single frame.</figcaption>
                 </figure>
 
-                <div class="table-scroll">
-                    <table class="compare">
-                        <thead><tr><th>Measured 17 October</th><th>Behind, median</th><th>at most</th><th>Server sent</th><th>Acks/s</th><th>300 ms round trip, fast phone</th></tr></thead>
-                        <tbody>
-                            <tr><th scope="row">Plugin</th><td>0.28 s</td><td>1.03 s</td><td>7.0 KB/s</td><td>0</td><td>10.1 fps</td></tr>
-                            <tr><th scope="row">Plugin, <code>__reopen</code></th><td>0.62 s</td><td>1.21 s</td><td>3.4 KB/s</td><td>0</td><td>10.1 fps</td></tr>
-                            <tr><th scope="row">Server, W=1, ack after paint</th><td>0.31 s</td><td>0.72 s</td><td>1.9 KB/s</td><td>2.5</td><td>2.8 fps</td></tr>
-                            <tr><th scope="row">Plugin, then server pacing</th><td>0.34 s</td><td>0.70 s</td><td>2.2 KB/s</td><td>2.4</td><td>10.1 fps, never paced</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-                <p class="fine">15× CPU, 150 seconds, the median of three runs; the last column is one run each. The page asked for pacing 2.2 seconds in. On a page slow for 60 seconds and then fast, pacing ended 5 to 6 seconds after the CPU sped up and the page went back to ten frames a second; with <code>__reopen</code> it stays on the slow stream. In an in-process load test of 1,000 streams with a tenth of them slow, pacing every stream took 9,205 acknowledgements a second and 2.9 times the CPU; pacing only the slow ones took 250 a second, within the plugin's range.</p>
+                <details class="more">
+                    <summary>Measured: pacing only after the event</summary>
+                    <div class="table-scroll">
+                        <table class="compare">
+                            <thead><tr><th>Measured 17 October</th><th>Behind, median</th><th>at most</th><th>Server sent</th><th>Acks/s</th><th>300 ms round trip, fast phone</th></tr></thead>
+                            <tbody>
+                                <tr><th scope="row">Plugin</th><td>0.28 s</td><td>1.03 s</td><td>7.0 KB/s</td><td>0</td><td>10.1 fps</td></tr>
+                                <tr><th scope="row">Plugin, <code>__reopen</code></th><td>0.62 s</td><td>1.21 s</td><td>3.4 KB/s</td><td>0</td><td>10.1 fps</td></tr>
+                                <tr><th scope="row">Server, W=1, ack after paint</th><td>0.31 s</td><td>0.72 s</td><td>1.9 KB/s</td><td>2.5</td><td>2.8 fps</td></tr>
+                                <tr><th scope="row">Plugin, then server pacing</th><td>0.34 s</td><td>0.70 s</td><td>2.2 KB/s</td><td>2.4</td><td>10.1 fps, never paced</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="fine">15× CPU, 150 seconds, the median of three runs; the last column is one run each. The page asked for pacing 2.2 seconds in. On a page slow for 60 seconds and then fast, pacing ended 5 to 6 seconds after the CPU sped up and the page went back to ten frames a second; with <code>__reopen</code> it stays on the slow stream. In an in-process load test of 1,000 streams with a tenth of them slow, pacing every stream took 9,205 acknowledgements a second and 2.9 times the CPU; pacing only the slow ones took 250 a second, within the plugin's range.</p>
+                </details>
 
                 <h3 id="which-to-use">Which to use</h3>
                 <div class="table-scroll">
