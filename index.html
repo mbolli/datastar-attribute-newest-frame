@@ -292,7 +292,7 @@
                 <pre class="code" data-lang="html"><code>&lt;body data-signals:_slow="false" data-newest-frame__reopen&gt;
   &lt;div id="stream" data-init="@get('/stream', {headers: $_slow ? {'Save-Data': 'on'} : {}})"&gt;&lt;/div&gt;
 &lt;/body&gt;</code></pre>
-                <p class="fine">This is how <a href="https://github.com/zweiundeins/lith">lith</a> uses it: its template and its site load the plugin with <code>__reopen</code>, and a stream whose request carries <code>Save-Data: on</code> sends each view at most four times a second.</p>
+                <p class="fine">A stream whose request carries <code>Save-Data: on</code> can send fewer frames, as <a href="https://github.com/zweiundeins/lith">lith</a> does with at most four a second per view. Use <code>__reopen</code> only for pages that are far too slow: at 6× CPU its four frames a second made a page worse than no fix, and it never switches back (<a href="#which-to-use">Which to use</a>). From v0.3.1, lith's template leaves it off and, on <code>newest-frame-behind</code>, paces the stream on the server instead (<a href="#pace-when-behind">Pacing only a page that is behind</a>).</p>
 
                 <h3 id="requirements">Requirements</h3>
                 <p class="fine">Datastar 1.0, with an import map that maps <code>datastar</code> and comes before every module script; Firefox ignores an import map that comes later. The plugin reads the <code>datastar-fetch</code> events that Datastar dispatches for every SSE event (their <code>type</code>, <code>el</code> and <code>argsRaw</code>), which Datastar 1.0.x does not document; its own virtual-scroll example dispatches them the same way.</p>
